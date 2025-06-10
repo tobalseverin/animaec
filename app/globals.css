@@ -1,0 +1,228 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Gotham Book";
+  src: url("/fonts/Gotham-Book.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Gotham Light";
+  src: url("/fonts/Gotham-Light.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+    --radius: 0.5rem;
+
+    /* Custom colors for calendar */
+    --salon-1: 340 82% 52%;
+    --salon-2: 210 100% 56%;
+    --salon-3: 130 61% 54%;
+    --salon-4: 43 96% 58%;
+    --salon-5: 280 100% 70%;
+    --casa: 24 100% 62%;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: "Gotham Book", sans-serif;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Gotham Light", sans-serif;
+  }
+}
+
+.video-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -1;
+}
+
+.background-iframe-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: -2;
+}
+
+.background-iframe {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  min-width: 100%;
+  min-height: 100%;
+  pointer-events: none;
+  border: none;
+  filter: grayscale(100%); /* Filtro blanco y negro */
+}
+
+/* Ajuste específico para proporciones verticales */
+@media (max-aspect-ratio: 16 / 9) {
+  .background-iframe {
+    width: 100vw; /* Asegura que cubra todo el ancho */
+    height: auto; /* Altura automática */
+    min-height: 100vh; /* Pero al menos toda la altura de la ventana */
+    transform: translate(-50%, -50%) scale(1.2); /* Escala ligeramente para eliminar bordes */
+  }
+}
+
+/* Ajuste específico para proporciones muy verticales (móviles) */
+@media (max-aspect-ratio: 9 / 16) {
+  .background-iframe {
+    transform: translate(-50%, -50%) scale(1.5); /* Mayor escala para proporciones muy verticales */
+  }
+}
+
+.video-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6); /* Cambiado a 60% de opacidad */
+  z-index: -1;
+}
+
+.main-menu-item {
+  @apply text-4xl md:text-6xl lg:text-8xl font-light tracking-tight transition-all duration-500 hover:tracking-wide;
+  font-family: "Gotham", sans-serif;
+}
+
+.main-menu-item:hover {
+  @apply text-white;
+}
+
+.thin-border {
+  @apply border border-border/40;
+}
+
+.thin-divider {
+  @apply h-px w-full bg-border/20;
+}
+
+.instructor-name {
+  color: #9ca3af; /* Un tono gris oscuro con buen contraste */
+  font-family: "Gotham Book", sans-serif;
+}
+
+.activity-title {
+  font-size: 1.375rem; /* Aumentado un 10% del tamaño original de 1.25rem */
+  font-family: "Gotham Light", sans-serif;
+  margin-bottom: 0.25rem;
+}
+
+/* Animaciones para el fondo */
+@keyframes pulse-slow {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 8s ease-in-out infinite;
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.bg-gradient-radial {
+  background-image: radial-gradient(circle, var(--tw-gradient-stops));
+}
+
+/* Efectos para imágenes dual tone */
+.dual-tone-image {
+  position: relative;
+  overflow: hidden;
+}
+
+.dual-tone-image img {
+  transition: all 0.3s ease;
+}
+
+.dual-tone-image:hover img {
+  transform: scale(1.05);
+}
