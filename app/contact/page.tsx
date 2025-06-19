@@ -1,56 +1,96 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
 import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { ArrowLeft, Send } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "@/hooks/use-toast"
-
-const formSchema = z.object({
-  name: z.string().min(2, {
-    message: "El nombre debe tener al menos 2 caracteres.",
-  }),
-  email: z.string().email({
-    message: "Por favor ingresa un correo electrónico válido.",
-  }),
-  message: z.string().min(10, {
-    message: "El mensaje debe tener al menos 10 caracteres.",
-  }),
-})
+import { sendEmail } from "@/lib/email-service"
 
 export default function ContactPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    message: "",
+  })
+  const [errors, setErrors] = useState({
+    name: "",
+    email: "",
+    message: "",
+  })
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
+  const validateForm = () => {
+    const newErrors = {
       name: "",
       email: "",
       message: "",
-    },
-  })
+    }
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (formData.name.length < 2) {
+      newErrors.name = "El nombre debe tener al menos 2 caracteres."
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.email)) {
+      newErrors.email = "Por favor ingresa un correo electrónico válido."
+    }
+
+    if (formData.message.length < 10) {
+      newErrors.message = "El mensaje debe tener al menos 10 caracteres."
+    }
+
+    setErrors(newErrors)
+    return !Object.values(newErrors).some((error) => error !== "")
+  }
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+    // Clear error when user starts typing
+    if (errors[field as keyof typeof errors]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }))
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!validateForm()) {
+      return
+    }
+
     setIsSubmitting(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    try {
+      const result = await sendEmail("contact", formData)
 
-    console.log(values)
-    toast({
-      title: "Mensaje enviado",
-      description: "Gracias por contactarnos. Te responderemos a la brevedad.",
-    })
-
-    form.reset()
-    setIsSubmitting(false)
+      if (result.success) {
+        toast({
+          title: "Mensaje enviado",
+          description: "Gracias por contactarnos. Te responderemos a la brevedad.",
+        })
+        setFormData({ name: "", email: "", message: "" })
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Hubo un problema al enviar tu mensaje. Por favor intenta nuevamente.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Hubo un problema al enviar tu mensaje. Por favor intenta nuevamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -79,8 +119,8 @@ export default function ContactPage() {
               <div>
                 <h3 className="text-lg font-medium mb-2">Email</h3>
                 <p className="text-muted-foreground">
-                  <a href="mailto:contacto@animaespacio.org" className="hover:underline">
-                    contacto@animaespacio.org
+                  <a href="mailto:hola@animaespacio.org" className="hover:underline">
+                    hola@animaespacio.org
                   </a>
                 </p>
               </div>
@@ -116,62 +156,73 @@ export default function ContactPage() {
                 <CardDescription>Completa el formulario y te responderemos a la brevedad.</CardDescription>
               </CardHeader>
               <CardContent>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Nombre</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Tu nombre" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="name"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Nombre
+                    </label>
+                    <Input
+                      id="name"
+                      placeholder="Tu nombre"
+                      value={formData.name}
+                      onChange={(e) => handleInputChange("name", e.target.value)}
+                      className={errors.name ? "border-red-500" : ""}
                     />
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Correo electrónico</FormLabel>
-                          <FormControl>
-                            <Input placeholder="tu@email.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                    {errors.name && <p className="text-sm font-medium text-red-500">{errors.name}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="email"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Correo electrónico
+                    </label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="tu@email.com"
+                      value={formData.email}
+                      onChange={(e) => handleInputChange("email", e.target.value)}
+                      className={errors.email ? "border-red-500" : ""}
                     />
-                    <FormField
-                      control={form.control}
-                      name="message"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Mensaje</FormLabel>
-                          <FormControl>
-                            <Textarea placeholder="¿En qué podemos ayudarte?" className="min-h-[120px]" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                    {errors.email && <p className="text-sm font-medium text-red-500">{errors.email}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="message"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Mensaje
+                    </label>
+                    <Textarea
+                      id="message"
+                      placeholder="¿En qué podemos ayudarte?"
+                      className={`min-h-[120px] ${errors.message ? "border-red-500" : ""}`}
+                      value={formData.message}
+                      onChange={(e) => handleInputChange("message", e.target.value)}
                     />
-                    <Button type="submit" disabled={isSubmitting} className="w-full">
-                      {isSubmitting ? (
-                        <span className="flex items-center">
-                          <span className="mr-2">Enviando</span>
-                          <span className="animate-spin">⋯</span>
-                        </span>
-                      ) : (
-                        <span className="flex items-center">
-                          <span className="mr-2">Enviar mensaje</span>
-                          <Send className="h-4 w-4" />
-                        </span>
-                      )}
-                    </Button>
-                  </form>
-                </Form>
+                    {errors.message && <p className="text-sm font-medium text-red-500">{errors.message}</p>}
+                  </div>
+
+                  <Button type="submit" disabled={isSubmitting} className="w-full">
+                    {isSubmitting ? (
+                      <span className="flex items-center">
+                        <span className="mr-2">Enviando</span>
+                        <span className="animate-spin">⋯</span>
+                      </span>
+                    ) : (
+                      <span className="flex items-center">
+                        <span className="mr-2">Enviar mensaje</span>
+                        <Send className="h-4 w-4" />
+                      </span>
+                    )}
+                  </Button>
+                </form>
               </CardContent>
             </Card>
           </div>

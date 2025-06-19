@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ChevronDown, ChevronUp, CreditCard } from "lucide-react"
+import { toast } from "@/hooks/use-toast"
+import { sendEmail } from "@/lib/email-service"
 
 // Colores extraídos del logo SVG
 const logoColors = {
@@ -46,6 +48,7 @@ export default function ListView() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [showRegistrationForm, setShowRegistrationForm] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<"singleClass" | "monthly" | "halfYear">("singleClass")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Crear fechas de manera segura
   const today = new Date()
@@ -222,12 +225,54 @@ export default function ListView() {
     }
   }
 
-  const handleRegistration = (e: React.FormEvent) => {
+  const handleRegistration = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Aquí iría la lógica para procesar el pago
-    alert(`Inscripción procesada para ${selectedEvent?.title}. Plan: ${selectedPlan}`)
-    setIsDialogOpen(false)
-    setShowRegistrationForm(false)
+    setIsSubmitting(true)
+
+    if (!selectedEvent) return
+
+    const formData = new FormData(e.target as HTMLFormElement)
+    const registrationData = {
+      eventTitle: selectedEvent.title,
+      selectedPlan: selectedPlan === "singleClass" ? "Por clase" : selectedPlan === "monthly" ? "Mensual" : "Semestral",
+      price:
+        selectedPlan === "singleClass"
+          ? formatPrice(selectedEvent.prices.singleClass)
+          : selectedPlan === "monthly"
+            ? formatPrice(selectedEvent.prices.monthly)
+            : formatPrice(selectedEvent.prices.halfYear),
+      fullName: formData.get("fullName") as string,
+      email: formData.get("email") as string,
+      phone: formData.get("phone") as string,
+      comments: (formData.get("comments") as string) || "",
+    }
+
+    try {
+      const result = await sendEmail("registration", registrationData)
+
+      if (result.success) {
+        toast({
+          title: "Inscripción enviada",
+          description: `Tu inscripción para ${selectedEvent.title} ha sido enviada correctamente. Te contactaremos pronto.`,
+        })
+        setIsDialogOpen(false)
+        setShowRegistrationForm(false)
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Hubo un problema al procesar tu inscripción. Por favor intenta nuevamente.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Hubo un problema al procesar tu inscripción. Por favor intenta nuevamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -399,17 +444,17 @@ export default function ListView() {
                     <form onSubmit={handleRegistration} className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="fullName">Nombre completo</Label>
-                        <Input id="fullName" placeholder="Tu nombre completo" required />
+                        <Input id="fullName" name="fullName" placeholder="Tu nombre completo" required />
                       </div>
 
                       <div className="space-y-2">
                         <Label htmlFor="email">Correo electrónico</Label>
-                        <Input id="email" type="email" placeholder="tu@email.com" required />
+                        <Input id="email" name="email" type="email" placeholder="tu@email.com" required />
                       </div>
 
                       <div className="space-y-2">
                         <Label htmlFor="phone">Teléfono</Label>
-                        <Input id="phone" placeholder="+598 XX XXX XXX" required />
+                        <Input id="phone" name="phone" placeholder="+598 XX XXX XXX" required />
                       </div>
 
                       <div className="space-y-2">
@@ -456,17 +501,21 @@ export default function ListView() {
 
                       <div className="space-y-2">
                         <Label htmlFor="comments">Comentarios adicionales</Label>
-                        <Input id="comments" placeholder="Información adicional que debamos saber" />
+                        <Input id="comments" name="comments" placeholder="Información adicional que debamos saber" />
                       </div>
 
-                      <Button type="submit" className="w-full">
-                        <CreditCard className="mr-2 h-4 w-4" />
-                        Abonar{" "}
-                        {selectedPlan === "singleClass"
-                          ? formatPrice(selectedEvent.prices.singleClass)
-                          : selectedPlan === "monthly"
-                            ? formatPrice(selectedEvent.prices.monthly)
-                            : formatPrice(selectedEvent.prices.halfYear)}
+                      <Button type="submit" className="w-full" disabled={isSubmitting}>
+                        {isSubmitting ? (
+                          <span className="flex items-center">
+                            <span className="mr-2">Enviando</span>
+                            <span className="animate-spin">⋯</span>
+                          </span>
+                        ) : (
+                          <>
+                            <CreditCard className="mr-2 h-4 w-4" />
+                            Enviar inscripción
+                          </>
+                        )}
                       </Button>
                     </form>
                   </div>
