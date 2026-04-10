@@ -10,7 +10,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Ánima Espacio Cultural",
   description: "Espacio para la creación, el arte, la comunidad y la residencia artística en Montevideo, Uruguay.",
-    generator: 'v0.dev'
+    generator: 'v0.app'
 }
 
 export default function RootLayout({

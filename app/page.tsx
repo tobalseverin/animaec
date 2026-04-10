@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef } from "react"
+import dynamic from "next/dynamic"
 import { motion } from "framer-motion"
 import { useLanguage } from "@/components/language-provider"
 import { Button } from "@/components/ui/button"
@@ -20,6 +21,12 @@ import { useTheme } from "next-themes"
 import Link from "next/link"
 import Footer from "@/components/footer"
 import Image from "next/image"
+
+// Dynamic import for YouTube embed to avoid SSR script issues
+const YouTubeBackground = dynamic(
+  () => import("@/components/youtube-embed").then((mod) => ({ default: mod.YouTubeEmbed })),
+  { ssr: false, loading: () => <div className="w-full h-full bg-black" /> }
+)
 
 // Lista de videos de YouTube para el fondo
 const backgroundVideos = {
@@ -93,13 +100,11 @@ export default function Home() {
     <main className="flex min-h-screen flex-col items-center justify-between relative overflow-hidden">
       {/* Video Background con cambio según hover */}
       <div className="background-iframe-container">
-        <iframe
+        <YouTubeBackground
           src={backgroundVideos[activeVideo as keyof typeof backgroundVideos]}
           title="Background Video"
           className="background-iframe"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          frameBorder="0"
-        ></iframe>
+        />
       </div>
       <div className="video-overlay"></div>
 
@@ -226,13 +231,11 @@ export default function Home() {
               {youtubeVideos.map((video) => (
                 <div key={video.id} className="overflow-hidden rounded-lg border border-border/40">
                   <div className="aspect-video w-full">
-                    <iframe
+                    <YouTubeBackground
                       src={video.embedUrl}
                       title={video.title}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      className="w-full h-full border-0"
-                    ></iframe>
+                      className="w-full h-full"
+                    />
                   </div>
                 </div>
               ))}

@@ -34,6 +34,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import SiteHeader from "@/components/site-header"
 import ActionButtons from "@/components/action-buttons"
+import { toast } from "@/hooks/use-toast"
+import { sendEmail } from "@/lib/email-service"
 
 interface CrearOption {
   id: string
@@ -54,7 +56,7 @@ export default function CrearPage() {
       icon: <FileText className="h-6 w-6 text-white" />,
       href: "/crear/proyectos",
       action: "modal",
-      bgImage: "/placeholder.svg?height=600&width=600&query=proyecto+cultural+arte",
+      bgImage: "/placeholder.svg?height=600&width=600",
     },
     {
       id: "residencias",
@@ -62,7 +64,7 @@ export default function CrearPage() {
       description: "Postula para una residencia artística en nuestro espacio",
       icon: <Home className="h-6 w-6 text-white" />,
       href: "/crear/residencias",
-      bgImage: "/placeholder.svg?height=600&width=600&query=residencia+artistica+cultural",
+      bgImage: "/placeholder.svg?height=600&width=600",
     },
     {
       id: "actividades",
@@ -71,7 +73,7 @@ export default function CrearPage() {
       icon: <Calendar className="h-6 w-6 text-white" />,
       href: "/crear/actividades",
       action: "modal",
-      bgImage: "/placeholder.svg?height=600&width=600&query=actividades+culturales+arte",
+      bgImage: "/placeholder.svg?height=600&width=600",
     },
     {
       id: "llamados",
@@ -79,14 +81,52 @@ export default function CrearPage() {
       description: "Consulta las convocatorias abiertas actualmente",
       icon: <Megaphone className="h-6 w-6 text-white" />,
       href: "/crear/llamados",
-      bgImage: "/placeholder.svg?height=600&width=600&query=convocatoria+cultural+arte",
+      bgImage: "/placeholder.svg?height=600&width=600",
     },
   ])
 
   const [scrollY, setScrollY] = useState(0)
   const [isProyectoModalOpen, setIsProyectoModalOpen] = useState(false)
   const [isActividadesModalOpen, setIsActividadesModalOpen] = useState(false)
-  const [currentStep, setCurrentStep] = useState(0) // Cambiado a 0 para la introducción
+  const [currentStep, setCurrentStep] = useState(0)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Estados para formulario de proyectos
+  const [proyectoFormData, setProyectoFormData] = useState({
+    nombre: "",
+    email: "",
+    telefono: "",
+    nacionalidad: "",
+    titulo: "",
+    area: "artes-visuales",
+    duracion: "",
+    participantes: "",
+    descripcion: "",
+    objetivos: "",
+    espacios: "salon1",
+    recursos: "",
+  })
+
+  // Estados para formulario de actividades
+  const [actividadFormData, setActividadFormData] = useState({
+    titulo: "",
+    responsable: "",
+    email: "",
+    telefono: "",
+    fecha: "",
+    horaInicio: "",
+    horaFin: "",
+    espacio: "salon1",
+    publico: "",
+    aforo: "",
+    precio: "",
+    descripcion: "",
+    redes: "",
+    observaciones: "",
+  })
+
+  const [proyectoErrors, setProyectoErrors] = useState<Record<string, string>>({})
+  const [actividadErrors, setActividadErrors] = useState<Record<string, string>>({})
 
   // Efecto para controlar el scroll
   useEffect(() => {
@@ -104,9 +144,250 @@ export default function CrearPage() {
     if (option.action === "modal") {
       if (option.id === "proyectos") {
         setIsProyectoModalOpen(true)
+        setCurrentStep(0)
       } else if (option.id === "actividades") {
         setIsActividadesModalOpen(true)
+        setCurrentStep(0)
       }
+    }
+  }
+
+  const validateProyectoForm = (step: number) => {
+    const errors: Record<string, string> = {}
+
+    switch (step) {
+      case 1:
+        if (!proyectoFormData.nombre.trim()) errors.nombre = "El nombre es requerido"
+        if (!proyectoFormData.email.trim()) errors.email = "El email es requerido"
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(proyectoFormData.email)) {
+          errors.email = "Email inválido"
+        }
+        if (!proyectoFormData.telefono.trim()) errors.telefono = "El teléfono es requerido"
+        if (!proyectoFormData.nacionalidad.trim()) errors.nacionalidad = "La nacionalidad es requerida"
+        break
+      case 2:
+        if (!proyectoFormData.titulo.trim()) errors.titulo = "El título es requerido"
+        if (!proyectoFormData.descripcion.trim()) errors.descripcion = "La descripción es requerida"
+        if (!proyectoFormData.objetivos.trim()) errors.objetivos = "Los objetivos son requeridos"
+        if (!proyectoFormData.duracion.trim()) errors.duracion = "La duración es requerida"
+        if (!proyectoFormData.participantes.trim()) errors.participantes = "El número de participantes es requerido"
+        break
+      case 3:
+        if (!proyectoFormData.recursos.trim()) errors.recursos = "Los recursos son requeridos"
+        break
+    }
+
+    setProyectoErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  const validateActividadForm = (step: number) => {
+    const errors: Record<string, string> = {}
+
+    switch (step) {
+      case 1:
+        if (!actividadFormData.titulo.trim()) errors.titulo = "El título es requerido"
+        if (!actividadFormData.responsable.trim()) errors.responsable = "El responsable es requerido"
+        if (!actividadFormData.email.trim()) errors.email = "El email es requerido"
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(actividadFormData.email)) {
+          errors.email = "Email inválido"
+        }
+        if (!actividadFormData.telefono.trim()) errors.telefono = "El teléfono es requerido"
+        break
+      case 2:
+        if (!actividadFormData.fecha.trim()) errors.fecha = "La fecha es requerida"
+        if (!actividadFormData.horaInicio.trim()) errors.horaInicio = "La hora de inicio es requerida"
+        if (!actividadFormData.horaFin.trim()) errors.horaFin = "La hora de fin es requerida"
+        if (!actividadFormData.descripcion.trim()) errors.descripcion = "La descripción es requerida"
+        if (!actividadFormData.publico.trim()) errors.publico = "El público objetivo es requerido"
+        if (!actividadFormData.aforo.trim()) errors.aforo = "El aforo es requerido"
+        if (!actividadFormData.precio.trim()) errors.precio = "El precio es requerido"
+        break
+    }
+
+    setActividadErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  const handleProyectoNext = () => {
+    if (currentStep === 0) {
+      setCurrentStep(1)
+    } else if (validateProyectoForm(currentStep)) {
+      if (currentStep < 3) {
+        setCurrentStep(currentStep + 1)
+      }
+    }
+  }
+
+  const handleActividadNext = () => {
+    if (currentStep === 0) {
+      setCurrentStep(1)
+    } else if (validateActividadForm(currentStep)) {
+      if (currentStep < 3) {
+        setCurrentStep(currentStep + 1)
+      }
+    }
+  }
+
+  const handleProyectoSubmit = async () => {
+    if (!validateProyectoForm(3)) return
+
+    setIsSubmitting(true)
+
+    // Mostrar notificación de envío inmediatamente
+    toast({
+      title: "Enviando propuesta",
+      description: "Por favor espera mientras procesamos tu propuesta de proyecto...",
+    })
+
+    try {
+      const result = await sendEmail("project", proyectoFormData)
+
+      if (result.success) {
+        toast({
+          title: "✅ Propuesta enviada exitosamente",
+          description: "Hemos recibido tu propuesta de proyecto. Te contactaremos en un plazo máximo de 15 días.",
+          duration: 8000,
+        })
+
+        // Mostrar mensaje de éxito visual
+        const successMessage = document.createElement("div")
+        successMessage.className =
+          "fixed top-4 right-4 z-50 bg-green-500 text-white p-4 rounded-lg shadow-lg flex items-center gap-2"
+        successMessage.innerHTML = `
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
+          </svg>
+          <span>Email enviado correctamente</span>
+        `
+        document.body.appendChild(successMessage)
+        setTimeout(() => successMessage.remove(), 5000)
+
+        // Reset form
+        setProyectoFormData({
+          nombre: "",
+          email: "",
+          telefono: "",
+          nacionalidad: "",
+          titulo: "",
+          area: "artes-visuales",
+          duracion: "",
+          participantes: "",
+          descripcion: "",
+          objetivos: "",
+          espacios: "salon1",
+          recursos: "",
+        })
+        setIsProyectoModalOpen(false)
+        setCurrentStep(0)
+      } else {
+        throw new Error(result.error)
+      }
+    } catch (error) {
+      toast({
+        title: "❌ Error al enviar",
+        description:
+          "Hubo un problema al enviar la información. Por favor intenta nuevamente o contacta a hola@animaespacio.org",
+        variant: "destructive",
+        duration: 10000,
+      })
+
+      // Mostrar mensaje de error visual
+      const errorMessage = document.createElement("div")
+      errorMessage.className =
+        "fixed top-4 right-4 z-50 bg-red-500 text-white p-4 rounded-lg shadow-lg flex items-center gap-2"
+      errorMessage.innerHTML = `
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path>
+        </svg>
+        <span>Error al enviar el email</span>
+      `
+      document.body.appendChild(errorMessage)
+      setTimeout(() => errorMessage.remove(), 5000)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleActividadSubmit = async () => {
+    if (!validateActividadForm(2)) return
+
+    setIsSubmitting(true)
+
+    // Mostrar notificación de envío inmediatamente
+    toast({
+      title: "Enviando información",
+      description: "Por favor espera mientras procesamos la información de tu actividad...",
+    })
+
+    try {
+      const result = await sendEmail("activity", actividadFormData)
+
+      if (result.success) {
+        toast({
+          title: "✅ Información enviada exitosamente",
+          description: "Hemos recibido la información de tu actividad. La difundiremos a través de nuestros canales.",
+          duration: 8000,
+        })
+
+        // Mostrar mensaje de éxito visual
+        const successMessage = document.createElement("div")
+        successMessage.className =
+          "fixed top-4 right-4 z-50 bg-green-500 text-white p-4 rounded-lg shadow-lg flex items-center gap-2"
+        successMessage.innerHTML = `
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path>
+          </svg>
+          <span>Email enviado correctamente</span>
+        `
+        document.body.appendChild(successMessage)
+        setTimeout(() => successMessage.remove(), 5000)
+
+        // Reset form
+        setActividadFormData({
+          titulo: "",
+          responsable: "",
+          email: "",
+          telefono: "",
+          fecha: "",
+          horaInicio: "",
+          horaFin: "",
+          espacio: "salon1",
+          publico: "",
+          aforo: "",
+          precio: "",
+          descripcion: "",
+          redes: "",
+          observaciones: "",
+        })
+        setIsActividadesModalOpen(false)
+        setCurrentStep(0)
+      } else {
+        throw new Error(result.error)
+      }
+    } catch (error) {
+      toast({
+        title: "❌ Error al enviar",
+        description:
+          "Hubo un problema al enviar la información. Por favor intenta nuevamente o contacta a hola@animaespacio.org",
+        variant: "destructive",
+        duration: 10000,
+      })
+
+      // Mostrar mensaje de error visual
+      const errorMessage = document.createElement("div")
+      errorMessage.className =
+        "fixed top-4 right-4 z-50 bg-red-500 text-white p-4 rounded-lg shadow-lg flex items-center gap-2"
+      errorMessage.innerHTML = `
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path>
+        </svg>
+        <span>Error al enviar el email</span>
+      `
+      document.body.appendChild(errorMessage)
+      setTimeout(() => errorMessage.remove(), 5000)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -334,7 +615,7 @@ export default function CrearPage() {
                   </div>
                   <div>
                     <img
-                      src="/placeholder.svg?height=600&width=600&query=proyecto+cultural+arte"
+                      src="/placeholder.svg?height=600&width=600"
                       alt="Proyectos en Ánima"
                       className="w-full h-auto rounded-lg object-cover aspect-[4/3] mb-6"
                     />
@@ -372,19 +653,56 @@ export default function CrearPage() {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="nombre">Nombre completo</Label>
-                        <Input id="nombre" placeholder="Tu nombre completo" />
+                        <Input
+                          id="nombre"
+                          placeholder="Tu nombre completo"
+                          value={proyectoFormData.nombre}
+                          onChange={(e) => setProyectoFormData((prev) => ({ ...prev, nombre: e.target.value }))}
+                          className={proyectoErrors.nombre ? "border-red-500" : ""}
+                        />
+                        {proyectoErrors.nombre && (
+                          <p className="text-sm font-medium text-red-500">{proyectoErrors.nombre}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="email">Correo electrónico</Label>
-                        <Input id="email" type="email" placeholder="tu@email.com" />
+                        <Input
+                          id="email"
+                          type="email"
+                          placeholder="tu@email.com"
+                          value={proyectoFormData.email}
+                          onChange={(e) => setProyectoFormData((prev) => ({ ...prev, email: e.target.value }))}
+                          className={proyectoErrors.email ? "border-red-500" : ""}
+                        />
+                        {proyectoErrors.email && (
+                          <p className="text-sm font-medium text-red-500">{proyectoErrors.email}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="telefono">Teléfono</Label>
-                        <Input id="telefono" placeholder="+598 XX XXX XXX" />
+                        <Input
+                          id="telefono"
+                          placeholder="+598 XX XXX XXX"
+                          value={proyectoFormData.telefono}
+                          onChange={(e) => setProyectoFormData((prev) => ({ ...prev, telefono: e.target.value }))}
+                          className={proyectoErrors.telefono ? "border-red-500" : ""}
+                        />
+                        {proyectoErrors.telefono && (
+                          <p className="text-sm font-medium text-red-500">{proyectoErrors.telefono}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="nacionalidad">Nacionalidad</Label>
-                        <Input id="nacionalidad" placeholder="Tu nacionalidad" />
+                        <Input
+                          id="nacionalidad"
+                          placeholder="Tu nacionalidad"
+                          value={proyectoFormData.nacionalidad}
+                          onChange={(e) => setProyectoFormData((prev) => ({ ...prev, nacionalidad: e.target.value }))}
+                          className={proyectoErrors.nacionalidad ? "border-red-500" : ""}
+                        />
+                        {proyectoErrors.nacionalidad && (
+                          <p className="text-sm font-medium text-red-500">{proyectoErrors.nacionalidad}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -415,23 +733,42 @@ export default function CrearPage() {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="titulo">Título del proyecto</Label>
-                        <Input id="titulo" placeholder="Nombre de tu proyecto" />
+                        <Input
+                          id="titulo"
+                          placeholder="Nombre de tu proyecto"
+                          value={proyectoFormData.titulo}
+                          onChange={(e) => setProyectoFormData((prev) => ({ ...prev, titulo: e.target.value }))}
+                          className={proyectoErrors.titulo ? "border-red-500" : ""}
+                        />
+                        {proyectoErrors.titulo && (
+                          <p className="text-sm font-medium text-red-500">{proyectoErrors.titulo}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="descripcion">Descripción</Label>
                         <Textarea
                           id="descripcion"
                           placeholder="Describe brevemente tu proyecto..."
-                          className="min-h-[120px]"
+                          className={`min-h-[120px] ${proyectoErrors.descripcion ? "border-red-500" : ""}`}
+                          value={proyectoFormData.descripcion}
+                          onChange={(e) => setProyectoFormData((prev) => ({ ...prev, descripcion: e.target.value }))}
                         />
+                        {proyectoErrors.descripcion && (
+                          <p className="text-sm font-medium text-red-500">{proyectoErrors.descripcion}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="objetivos">Objetivos</Label>
                         <Textarea
                           id="objetivos"
                           placeholder="¿Qué buscas lograr con este proyecto?"
-                          className="min-h-[80px]"
+                          className={`min-h-[80px] ${proyectoErrors.objetivos ? "border-red-500" : ""}`}
+                          value={proyectoFormData.objetivos}
+                          onChange={(e) => setProyectoFormData((prev) => ({ ...prev, objetivos: e.target.value }))}
                         />
+                        {proyectoErrors.objetivos && (
+                          <p className="text-sm font-medium text-red-500">{proyectoErrors.objetivos}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -439,7 +776,10 @@ export default function CrearPage() {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label>Área principal</Label>
-                        <RadioGroup defaultValue="artes-visuales">
+                        <RadioGroup
+                          value={proyectoFormData.area}
+                          onValueChange={(value) => setProyectoFormData((prev) => ({ ...prev, area: value }))}
+                        >
                           <div className="flex items-center space-x-2">
                             <RadioGroupItem value="artes-visuales" id="artes-visuales" />
                             <Label htmlFor="artes-visuales">Artes visuales</Label>
@@ -468,11 +808,30 @@ export default function CrearPage() {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="duracion">Duración estimada</Label>
-                        <Input id="duracion" placeholder="Ej: 3 meses, 1 semana, etc." />
+                        <Input
+                          id="duracion"
+                          placeholder="Ej: 3 meses, 1 semana, etc."
+                          value={proyectoFormData.duracion}
+                          onChange={(e) => setProyectoFormData((prev) => ({ ...prev, duracion: e.target.value }))}
+                          className={proyectoErrors.duracion ? "border-red-500" : ""}
+                        />
+                        {proyectoErrors.duracion && (
+                          <p className="text-sm font-medium text-red-500">{proyectoErrors.duracion}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="participantes">Número de participantes</Label>
-                        <Input id="participantes" type="number" placeholder="Ej: 5" />
+                        <Input
+                          id="participantes"
+                          type="number"
+                          placeholder="Ej: 5"
+                          value={proyectoFormData.participantes}
+                          onChange={(e) => setProyectoFormData((prev) => ({ ...prev, participantes: e.target.value }))}
+                          className={proyectoErrors.participantes ? "border-red-500" : ""}
+                        />
+                        {proyectoErrors.participantes && (
+                          <p className="text-sm font-medium text-red-500">{proyectoErrors.participantes}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -488,12 +847,20 @@ export default function CrearPage() {
                         <Textarea
                           id="recursos"
                           placeholder="¿Qué recursos necesitas para desarrollar tu proyecto?"
-                          className="min-h-[120px]"
+                          className={`min-h-[120px] ${proyectoErrors.recursos ? "border-red-500" : ""}`}
+                          value={proyectoFormData.recursos}
+                          onChange={(e) => setProyectoFormData((prev) => ({ ...prev, recursos: e.target.value }))}
                         />
+                        {proyectoErrors.recursos && (
+                          <p className="text-sm font-medium text-red-500">{proyectoErrors.recursos}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="espacios">Espacios requeridos</Label>
-                        <RadioGroup defaultValue="salon1">
+                        <RadioGroup
+                          value={proyectoFormData.espacios}
+                          onValueChange={(value) => setProyectoFormData((prev) => ({ ...prev, espacios: value }))}
+                        >
                           <div className="flex items-center space-x-2">
                             <RadioGroupItem value="salon1" id="salon1" />
                             <Label htmlFor="salon1">Salón 1</Label>
@@ -549,17 +916,29 @@ export default function CrearPage() {
 
           <DialogFooter className="p-8 pt-0 flex flex-col sm:flex-row gap-4">
             {currentStep > 0 && (
-              <Button variant="outline" onClick={() => setCurrentStep(currentStep - 1)}>
+              <Button variant="outline" onClick={() => setCurrentStep(currentStep - 1)} disabled={isSubmitting}>
                 Anterior
               </Button>
             )}
             <div className="flex-1"></div>
             {currentStep < 3 ? (
-              <Button onClick={() => setCurrentStep(currentStep + 1)}>
+              <Button onClick={handleProyectoNext} disabled={isSubmitting}>
                 {currentStep === 0 ? "Comenzar" : "Siguiente"} <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             ) : (
-              <Button onClick={() => setIsProyectoModalOpen(false)}>Enviar propuesta</Button>
+              <Button onClick={handleProyectoSubmit} disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <span className="flex items-center">
+                    <span className="mr-2">Enviando</span>
+                    <span className="animate-spin">⋯</span>
+                  </span>
+                ) : (
+                  <>
+                    <Send className="mr-2 h-4 w-4" />
+                    Enviar propuesta
+                  </>
+                )}
+              </Button>
             )}
           </DialogFooter>
         </DialogContent>
@@ -649,7 +1028,7 @@ export default function CrearPage() {
                   </div>
                   <div>
                     <img
-                      src="/placeholder.svg?height=600&width=600&query=actividades+culturales+arte"
+                      src="/placeholder.svg?height=600&width=600"
                       alt="Actividades en Ánima"
                       className="w-full h-auto rounded-lg object-cover aspect-[4/3] mb-6"
                     />
@@ -687,25 +1066,62 @@ export default function CrearPage() {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="act-titulo">Título de la actividad</Label>
-                        <Input id="act-titulo" placeholder="Nombre de tu actividad" />
+                        <Input
+                          id="act-titulo"
+                          placeholder="Nombre de tu actividad"
+                          value={actividadFormData.titulo}
+                          onChange={(e) => setActividadFormData((prev) => ({ ...prev, titulo: e.target.value }))}
+                          className={actividadErrors.titulo ? "border-red-500" : ""}
+                        />
+                        {actividadErrors.titulo && (
+                          <p className="text-sm font-medium text-red-500">{actividadErrors.titulo}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="act-responsable">Responsable/Organizador</Label>
-                        <Input id="act-responsable" placeholder="Nombre del responsable o colectivo" />
+                        <Input
+                          id="act-responsable"
+                          placeholder="Nombre del responsable o colectivo"
+                          value={actividadFormData.responsable}
+                          onChange={(e) => setActividadFormData((prev) => ({ ...prev, responsable: e.target.value }))}
+                          className={actividadErrors.responsable ? "border-red-500" : ""}
+                        />
+                        {actividadErrors.responsable && (
+                          <p className="text-sm font-medium text-red-500">{actividadErrors.responsable}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="act-email">Correo electrónico</Label>
-                        <Input id="act-email" type="email" placeholder="tu@email.com" />
+                        <Input
+                          id="act-email"
+                          type="email"
+                          placeholder="tu@email.com"
+                          value={actividadFormData.email}
+                          onChange={(e) => setActividadFormData((prev) => ({ ...prev, email: e.target.value }))}
+                          className={actividadErrors.email ? "border-red-500" : ""}
+                        />
+                        {actividadErrors.email && (
+                          <p className="text-sm font-medium text-red-500">{actividadErrors.email}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="act-telefono">Teléfono de contacto</Label>
-                        <Input id="act-telefono" placeholder="+598 XX XXX XXX" />
+                        <Input
+                          id="act-telefono"
+                          placeholder="+598 XX XXX XXX"
+                          value={actividadFormData.telefono}
+                          onChange={(e) => setActividadFormData((prev) => ({ ...prev, telefono: e.target.value }))}
+                          className={actividadErrors.telefono ? "border-red-500" : ""}
+                        />
+                        {actividadErrors.telefono && (
+                          <p className="text-sm font-medium text-red-500">{actividadErrors.telefono}</p>
+                        )}
                       </div>
                     </div>
                   </div>
                   <div>
                     <img
-                      src="/placeholder.svg?height=600&width=600&query=actividades+culturales+arte"
+                      src="/placeholder.svg?height=600&width=600"
                       alt="Actividades en Ánima"
                       className="w-full h-auto rounded-lg object-cover aspect-[4/3] mb-4"
                     />
@@ -723,19 +1139,49 @@ export default function CrearPage() {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="act-fecha">Fecha</Label>
-                        <Input id="act-fecha" type="date" />
+                        <Input
+                          id="act-fecha"
+                          type="date"
+                          value={actividadFormData.fecha}
+                          onChange={(e) => setActividadFormData((prev) => ({ ...prev, fecha: e.target.value }))}
+                          className={actividadErrors.fecha ? "border-red-500" : ""}
+                        />
+                        {actividadErrors.fecha && (
+                          <p className="text-sm font-medium text-red-500">{actividadErrors.fecha}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="act-hora-inicio">Hora de inicio</Label>
-                        <Input id="act-hora-inicio" type="time" />
+                        <Input
+                          id="act-hora-inicio"
+                          type="time"
+                          value={actividadFormData.horaInicio}
+                          onChange={(e) => setActividadFormData((prev) => ({ ...prev, horaInicio: e.target.value }))}
+                          className={actividadErrors.horaInicio ? "border-red-500" : ""}
+                        />
+                        {actividadErrors.horaInicio && (
+                          <p className="text-sm font-medium text-red-500">{actividadErrors.horaInicio}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="act-hora-fin">Hora de finalización</Label>
-                        <Input id="act-hora-fin" type="time" />
+                        <Input
+                          id="act-hora-fin"
+                          type="time"
+                          value={actividadFormData.horaFin}
+                          onChange={(e) => setActividadFormData((prev) => ({ ...prev, horaFin: e.target.value }))}
+                          className={actividadErrors.horaFin ? "border-red-500" : ""}
+                        />
+                        {actividadErrors.horaFin && (
+                          <p className="text-sm font-medium text-red-500">{actividadErrors.horaFin}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="act-espacio">Espacio</Label>
-                        <RadioGroup defaultValue="salon1">
+                        <RadioGroup
+                          value={actividadFormData.espacio}
+                          onValueChange={(value) => setActividadFormData((prev) => ({ ...prev, espacio: value }))}
+                        >
                           <div className="flex items-center space-x-2">
                             <RadioGroupItem value="salon1" id="act-salon1" />
                             <Label htmlFor="act-salon1">Salón 1</Label>
@@ -768,25 +1214,56 @@ export default function CrearPage() {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="act-descripcion">Descripción</Label>
-                      </div>
-                      <div className="space-y-2">
                         <Textarea
                           id="act-descripcion"
                           placeholder="Describe brevemente la actividad..."
-                          className="min-h-[120px]"
+                          className={`min-h-[120px] ${actividadErrors.descripcion ? "border-red-500" : ""}`}
+                          value={actividadFormData.descripcion}
+                          onChange={(e) => setActividadFormData((prev) => ({ ...prev, descripcion: e.target.value }))}
                         />
+                        {actividadErrors.descripcion && (
+                          <p className="text-sm font-medium text-red-500">{actividadErrors.descripcion}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="act-publico">Público objetivo</Label>
-                        <Input id="act-publico" placeholder="Ej: Todo público, adultos, niños, etc." />
+                        <Input
+                          id="act-publico"
+                          placeholder="Ej: Todo público, adultos, niños, etc."
+                          value={actividadFormData.publico}
+                          onChange={(e) => setActividadFormData((prev) => ({ ...prev, publico: e.target.value }))}
+                          className={actividadErrors.publico ? "border-red-500" : ""}
+                        />
+                        {actividadErrors.publico && (
+                          <p className="text-sm font-medium text-red-500">{actividadErrors.publico}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="act-aforo">Aforo máximo</Label>
-                        <Input id="act-aforo" type="number" placeholder="Ej: 30" />
+                        <Input
+                          id="act-aforo"
+                          type="number"
+                          placeholder="Ej: 30"
+                          value={actividadFormData.aforo}
+                          onChange={(e) => setActividadFormData((prev) => ({ ...prev, aforo: e.target.value }))}
+                          className={actividadErrors.aforo ? "border-red-500" : ""}
+                        />
+                        {actividadErrors.aforo && (
+                          <p className="text-sm font-medium text-red-500">{actividadErrors.aforo}</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="act-precio">Precio (si aplica)</Label>
-                        <Input id="act-precio" placeholder="Ej: $200, Entrada libre, etc." />
+                        <Input
+                          id="act-precio"
+                          placeholder="Ej: $200, Entrada libre, etc."
+                          value={actividadFormData.precio}
+                          onChange={(e) => setActividadFormData((prev) => ({ ...prev, precio: e.target.value }))}
+                          className={actividadErrors.precio ? "border-red-500" : ""}
+                        />
+                        {actividadErrors.precio && (
+                          <p className="text-sm font-medium text-red-500">{actividadErrors.precio}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -798,20 +1275,13 @@ export default function CrearPage() {
                   <div>
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="act-materiales">Materiales promocionales</Label>
-                        <p className="text-xs text-muted-foreground mb-2">
-                          Puedes adjuntar imágenes, flyers o cualquier material promocional para difundir tu actividad.
-                        </p>
-                        <div className="border-2 border-dashed border-white/20 rounded-lg p-8 text-center">
-                          <p className="text-muted-foreground mb-2">Arrastra y suelta archivos aquí o</p>
-                          <Button variant="outline" size="sm">
-                            Seleccionar archivos
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
                         <Label htmlFor="act-redes">Enlaces a redes sociales</Label>
-                        <Input id="act-redes" placeholder="Instagram, Facebook, etc." />
+                        <Input
+                          id="act-redes"
+                          placeholder="Instagram, Facebook, etc."
+                          value={actividadFormData.redes}
+                          onChange={(e) => setActividadFormData((prev) => ({ ...prev, redes: e.target.value }))}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="act-observaciones">Observaciones adicionales</Label>
@@ -819,13 +1289,15 @@ export default function CrearPage() {
                           id="act-observaciones"
                           placeholder="Cualquier información adicional que consideres relevante..."
                           className="min-h-[80px]"
+                          value={actividadFormData.observaciones}
+                          onChange={(e) => setActividadFormData((prev) => ({ ...prev, observaciones: e.target.value }))}
                         />
                       </div>
                     </div>
                   </div>
                   <div>
                     <img
-                      src="/placeholder.svg?height=600&width=600&query=difusion+actividades+culturales"
+                      src="/placeholder.svg?height=600&width=600"
                       alt="Difusión de actividades"
                       className="w-full h-auto rounded-lg object-cover aspect-[4/3] mb-4"
                     />
@@ -849,17 +1321,29 @@ export default function CrearPage() {
 
           <DialogFooter className="p-8 pt-0 flex flex-col sm:flex-row gap-4">
             {currentStep > 0 && (
-              <Button variant="outline" onClick={() => setCurrentStep(currentStep - 1)}>
+              <Button variant="outline" onClick={() => setCurrentStep(currentStep - 1)} disabled={isSubmitting}>
                 Anterior
               </Button>
             )}
             <div className="flex-1"></div>
             {currentStep < 3 ? (
-              <Button onClick={() => setCurrentStep(currentStep + 1)}>
+              <Button onClick={handleActividadNext} disabled={isSubmitting}>
                 {currentStep === 0 ? "Comenzar" : "Siguiente"} <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             ) : (
-              <Button onClick={() => setIsActividadesModalOpen(false)}>Enviar información</Button>
+              <Button onClick={handleActividadSubmit} disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <span className="flex items-center">
+                    <span className="mr-2">Enviando</span>
+                    <span className="animate-spin">⋯</span>
+                  </span>
+                ) : (
+                  <>
+                    <Send className="mr-2 h-4 w-4" />
+                    Enviar información
+                  </>
+                )}
+              </Button>
             )}
           </DialogFooter>
         </DialogContent>

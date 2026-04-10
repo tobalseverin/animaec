@@ -1,8 +1,6 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import * as THREE from "three"
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
@@ -13,18 +11,18 @@ interface Space {
   id: string
   name: string
   color: string
-  position: THREE.Vector3
+  position: { x: number; y: number; z: number }
 }
 
 export default function ThreeDViewer() {
   const containerRef = useRef<HTMLDivElement>(null)
   const [spaces, setSpaces] = useState<Space[]>([
-    { id: "salon1", name: "Salón 1", color: "#e91e63", position: new THREE.Vector3(-5, 0, 0) },
-    { id: "salon2", name: "Salón 2", color: "#2196f3", position: new THREE.Vector3(0, 0, -5) },
-    { id: "salon3", name: "Salón 3", color: "#4caf50", position: new THREE.Vector3(5, 0, 0) },
-    { id: "salon4", name: "Salón 4", color: "#ffc107", position: new THREE.Vector3(0, 0, 5) },
-    { id: "salon5", name: "Salón 5", color: "#9c27b0", position: new THREE.Vector3(0, 3, 0) },
-    { id: "casa", name: "Casa", color: "#ff9800", position: new THREE.Vector3(0, 0, 0) },
+    { id: "salon1", name: "Salón 1", color: "#e91e63", position: { x: -5, y: 0, z: 0 } },
+    { id: "salon2", name: "Salón 2", color: "#2196f3", position: { x: 0, y: 0, z: -5 } },
+    { id: "salon3", name: "Salón 3", color: "#4caf50", position: { x: 5, y: 0, z: 0 } },
+    { id: "salon4", name: "Salón 4", color: "#ffc107", position: { x: 0, y: 0, z: 5 } },
+    { id: "salon5", name: "Salón 5", color: "#9c27b0", position: { x: 0, y: 3, z: 0 } },
+    { id: "casa", name: "Casa", color: "#ff9800", position: { x: 0, y: 0, z: 0 } },
   ])
   const [activeSpace, setActiveSpace] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -32,147 +30,134 @@ export default function ThreeDViewer() {
   const [isInfoVisible, setIsInfoVisible] = useState(true)
 
   useEffect(() => {
-    if (!containerRef.current) return
+    let scene: any, camera: any, renderer: any, controls: any
 
-    // Scene setup
-    const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0x111111)
+    const initThreeJS = async () => {
+      try {
+        // Importación dinámica de Three.js
+        const THREE = await import("three")
+        const { OrbitControls } = await import("three/examples/jsm/controls/OrbitControls.js")
 
-    // Camera setup
-    const camera = new THREE.PerspectiveCamera(
-      75,
-      containerRef.current.clientWidth / containerRef.current.clientHeight,
-      0.1,
-      1000,
-    )
-    camera.position.set(10, 10, 10)
+        if (!containerRef.current) return
 
-    // Renderer setup
-    const renderer = new THREE.WebGLRenderer({ antialias: true })
-    renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight)
-    renderer.setPixelRatio(window.devicePixelRatio)
-    renderer.shadowMap.enabled = true
-    containerRef.current.appendChild(renderer.domElement)
+        // Scene setup
+        scene = new THREE.Scene()
+        scene.background = new THREE.Color(0x111111)
 
-    // Controls
-    const controls = new OrbitControls(camera, renderer.domElement)
-    controls.enableDamping = true
-    controls.dampingFactor = 0.05
+        // Camera setup
+        camera = new THREE.PerspectiveCamera(
+          75,
+          containerRef.current.clientWidth / containerRef.current.clientHeight,
+          0.1,
+          1000,
+        )
+        camera.position.set(10, 10, 10)
 
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5)
-    scene.add(ambientLight)
+        // Renderer setup
+        renderer = new THREE.WebGLRenderer({ antialias: true })
+        renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight)
+        renderer.setPixelRatio(window.devicePixelRatio)
+        renderer.shadowMap.enabled = true
+        containerRef.current.appendChild(renderer.domElement)
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1)
-    directionalLight.position.set(5, 10, 5)
-    directionalLight.castShadow = true
-    scene.add(directionalLight)
+        // Controls
+        controls = new OrbitControls(camera, renderer.domElement)
+        controls.enableDamping = true
+        controls.dampingFactor = 0.05
 
-    // Fallback geometry if model fails to load
-    const createFallbackGeometry = () => {
-      console.log("Creating fallback geometry")
-      // Create a simple building-like geometry
-      const buildingGroup = new THREE.Group()
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5)
+        scene.add(ambientLight)
 
-      // Main building
-      const buildingGeometry = new THREE.BoxGeometry(10, 5, 8)
-      const buildingMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc })
-      const building = new THREE.Mesh(buildingGeometry, buildingMaterial)
-      building.position.y = 2.5
-      buildingGroup.add(building)
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1)
+        directionalLight.position.set(5, 10, 5)
+        directionalLight.castShadow = true
+        scene.add(directionalLight)
 
-      // Roof
-      const roofGeometry = new THREE.ConeGeometry(7, 3, 4)
-      const roofMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 })
-      const roof = new THREE.Mesh(roofGeometry, roofMaterial)
-      roof.position.y = 6.5
-      roof.rotation.y = Math.PI / 4
-      buildingGroup.add(roof)
+        // Create fallback geometry
+        const buildingGroup = new THREE.Group()
 
-      // Create rooms for each space
-      spaces.forEach((space) => {
-        const roomGeometry = new THREE.BoxGeometry(3, 2, 3)
-        const roomMaterial = new THREE.MeshStandardMaterial({
-          color: space.color,
-          transparent: true,
-          opacity: 0.7,
-        })
-        const room = new THREE.Mesh(roomGeometry, roomMaterial)
-        room.position.copy(space.position)
-        room.position.y = 2
-        room.userData = { spaceId: space.id }
-        buildingGroup.add(room)
-      })
+        // Main building
+        const buildingGeometry = new THREE.BoxGeometry(10, 5, 8)
+        const buildingMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc })
+        const building = new THREE.Mesh(buildingGeometry, buildingMaterial)
+        building.position.y = 2.5
+        buildingGroup.add(building)
 
-      scene.add(buildingGroup)
+        // Roof
+        const roofGeometry = new THREE.ConeGeometry(7, 3, 4)
+        const roofMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 })
+        const roof = new THREE.Mesh(roofGeometry, roofMaterial)
+        roof.position.y = 6.5
+        roof.rotation.y = Math.PI / 4
+        buildingGroup.add(roof)
 
-      // Position camera to view the fallback model
-      camera.position.set(15, 10, 15)
-      camera.lookAt(new THREE.Vector3(0, 0, 0))
-      controls.update()
-
-      setIsLoading(false)
-    }
-
-    // Directly create fallback geometry instead of trying to load model
-    createFallbackGeometry()
-    setLoadError("Utilizando visualización 3D simplificada. El modelo detallado no está disponible en este momento.")
-
-    // Highlight spaces
-    const highlightSpaces = () => {
-      // Remove existing highlights
-      scene.children.forEach((child) => {
-        if (child.userData && child.userData.isHighlight) {
-          scene.remove(child)
-        }
-      })
-
-      // Add new highlight if there's an active space
-      if (activeSpace) {
-        const space = spaces.find((s) => s.id === activeSpace)
-        if (space) {
-          const geometry = new THREE.SphereGeometry(1, 32, 32)
-          const material = new THREE.MeshBasicMaterial({
-            color: new THREE.Color(space.color),
+        // Create rooms for each space
+        spaces.forEach((space) => {
+          const roomGeometry = new THREE.BoxGeometry(3, 2, 3)
+          const roomMaterial = new THREE.MeshStandardMaterial({
+            color: space.color,
             transparent: true,
-            opacity: 0.5,
+            opacity: 0.7,
           })
-          const highlight = new THREE.Mesh(geometry, material)
-          highlight.position.copy(space.position)
-          highlight.userData = { isHighlight: true }
-          scene.add(highlight)
+          const room = new THREE.Mesh(roomGeometry, roomMaterial)
+          room.position.set(space.position.x, 2, space.position.z)
+          room.userData = { spaceId: space.id }
+          buildingGroup.add(room)
+        })
+
+        scene.add(buildingGroup)
+
+        // Position camera
+        camera.position.set(15, 10, 15)
+        camera.lookAt(new THREE.Vector3(0, 0, 0))
+        controls.update()
+
+        setIsLoading(false)
+        setLoadError(null)
+
+        // Animation loop
+        const animate = () => {
+          requestAnimationFrame(animate)
+          controls.update()
+          renderer.render(scene, camera)
         }
+        animate()
+      } catch (error) {
+        console.error("Error loading Three.js:", error)
+        setLoadError("Error al cargar el visor 3D. Por favor, recarga la página.")
+        setIsLoading(false)
       }
     }
 
-    // Animation loop
-    const animate = () => {
-      requestAnimationFrame(animate)
-      controls.update()
-      renderer.render(scene, camera)
-    }
-    animate()
+    initThreeJS()
 
     // Handle window resize
     const handleResize = () => {
-      if (!containerRef.current) return
+      if (!containerRef.current || !camera || !renderer) return
       camera.aspect = containerRef.current.clientWidth / containerRef.current.clientHeight
       camera.updateProjectionMatrix()
       renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight)
     }
     window.addEventListener("resize", handleResize)
 
-    // Update highlights when active space changes
-    highlightSpaces()
-
     // Cleanup
     return () => {
       window.removeEventListener("resize", handleResize)
-      if (containerRef.current) {
+      if (containerRef.current && renderer) {
         containerRef.current.removeChild(renderer.domElement)
       }
+      if (renderer) {
+        renderer.dispose()
+      }
     }
-  }, [activeSpace, spaces])
+  }, [spaces])
+
+  // Highlight effect for active space
+  useEffect(() => {
+    // This would update highlights when activeSpace changes
+    // Implementation depends on the Three.js scene being ready
+  }, [activeSpace])
 
   return (
     <main className="min-h-screen flex flex-col relative">
@@ -192,7 +177,7 @@ export default function ThreeDViewer() {
           </div>
         )}
         {loadError && (
-          <div className="absolute top-4 left-4 right-4 bg-yellow-500/20 border border-yellow-500 text-yellow-700 dark:text-yellow-300 p-3 rounded-md z-10">
+          <div className="absolute top-4 left-4 right-4 bg-red-500/20 border border-red-500 text-red-700 dark:text-red-300 p-3 rounded-md z-10">
             <p>{loadError}</p>
           </div>
         )}

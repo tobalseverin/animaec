@@ -50,6 +50,8 @@ export type FormData = ContactFormData | ProjectFormData | ActivityFormData | Re
 
 export async function sendEmail(type: "contact" | "project" | "activity" | "registration", formData: FormData) {
   try {
+    console.log("🔄 Email service - sending request:", { type })
+
     const response = await fetch("/api/send-email", {
       method: "POST",
       headers: {
@@ -61,15 +63,34 @@ export async function sendEmail(type: "contact" | "project" | "activity" | "regi
       }),
     })
 
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || "Error al enviar el email")
+    console.log("📡 Email service - response status:", response.status, response.statusText)
+
+    let result
+    try {
+      result = await response.json()
+      console.log("📡 Email service - parsed response:", result)
+    } catch (parseError) {
+      console.error("❌ Email service - failed to parse JSON:", parseError)
+      const textResponse = await response.text()
+      console.error("❌ Email service - raw response:", textResponse)
+      throw new Error(`Server returned invalid response. Status: ${response.status}`)
     }
 
-    const result = await response.json()
+    if (!response.ok) {
+      const errorMessage = result.details || result.error || `HTTP ${response.status}: ${response.statusText}`
+      console.error("❌ Email service - API error:", {
+        status: response.status,
+        error: result.error,
+        details: result.details,
+        fullResponse: result,
+      })
+      throw new Error(errorMessage)
+    }
+
+    console.log("✅ Email service - success:", result)
     return { success: true, data: result }
   } catch (error) {
-    console.error("Error sending email:", error)
+    console.error("❌ Email service - error:", error)
     return {
       success: false,
       error: error instanceof Error ? error.message : "Error desconocido",
