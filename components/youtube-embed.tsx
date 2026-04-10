@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef } from "react"
 
 interface YouTubeEmbedProps {
   src: string
@@ -9,38 +9,45 @@ interface YouTubeEmbedProps {
 }
 
 export function YouTubeEmbed({ src, title, className = "" }: YouTubeEmbedProps) {
-  const [isClient, setIsClient] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const iframeCreated = useRef(false)
 
   useEffect(() => {
-    setIsClient(true)
-  }, [])
-
-  useEffect(() => {
-    if (isClient && containerRef.current) {
-      // Create iframe using DOM API to avoid React script tag warning
-      const iframe = document.createElement("iframe")
-      iframe.src = src
-      iframe.title = title
-      iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-      iframe.allowFullscreen = true
-      iframe.style.border = "0"
-      iframe.style.width = "100%"
-      iframe.style.height = "100%"
+    if (containerRef.current && !iframeCreated.current) {
+      iframeCreated.current = true
       
-      // Clear and append
-      containerRef.current.innerHTML = ""
-      containerRef.current.appendChild(iframe)
+      // Use requestAnimationFrame to ensure we're in browser context
+      requestAnimationFrame(() => {
+        if (!containerRef.current) return
+        
+        // Create iframe using DOM API to completely bypass React
+        const iframe = document.createElement("iframe")
+        iframe.src = src
+        iframe.title = title
+        iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        iframe.allowFullscreen = true
+        iframe.loading = "lazy"
+        iframe.style.cssText = "border:0;width:100%;height:100%;position:absolute;top:0;left:0;"
+        
+        containerRef.current.appendChild(iframe)
+      })
     }
-  }, [isClient, src, title])
+    
+    return () => {
+      iframeCreated.current = false
+    }
+  }, [src, title])
 
   return (
     <div 
       ref={containerRef} 
       className={className}
-      style={{ width: "100%", height: "100%" }}
-    >
-      {!isClient && <div className="bg-muted animate-pulse w-full h-full" />}
-    </div>
+      style={{ 
+        width: "100%", 
+        height: "100%", 
+        position: "relative",
+        backgroundColor: "#000"
+      }}
+    />
   )
 }

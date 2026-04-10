@@ -28,16 +28,16 @@ const YouTubeBackground = dynamic(
   { ssr: false, loading: () => <div className="w-full h-full bg-black" /> }
 )
 
-// Lista de videos de YouTube para el fondo
+// Lista de videos de YouTube para el fondo (usando youtube-nocookie.com para menos scripts)
 const backgroundVideos = {
   default:
-    "https://www.youtube.com/embed/a8S6_aTRMEU?autoplay=1&mute=1&loop=1&playlist=a8S6_aTRMEU&controls=0&showinfo=0&modestbranding=1&rel=0",
+    "https://www.youtube-nocookie.com/embed/a8S6_aTRMEU?autoplay=1&mute=1&loop=1&playlist=a8S6_aTRMEU&controls=0&showinfo=0&modestbranding=1&rel=0",
   crear:
-    "https://www.youtube.com/embed/a8S6_aTRMEU?autoplay=1&mute=1&loop=1&playlist=a8S6_aTRMEU&controls=0&showinfo=0&modestbranding=1&rel=0",
+    "https://www.youtube-nocookie.com/embed/a8S6_aTRMEU?autoplay=1&mute=1&loop=1&playlist=a8S6_aTRMEU&controls=0&showinfo=0&modestbranding=1&rel=0",
   explorar:
-    "https://www.youtube.com/embed/4S7xeGj3jNw?autoplay=1&mute=1&loop=1&playlist=4S7xeGj3jNw&controls=0&showinfo=0&modestbranding=1&rel=0",
+    "https://www.youtube-nocookie.com/embed/4S7xeGj3jNw?autoplay=1&mute=1&loop=1&playlist=4S7xeGj3jNw&controls=0&showinfo=0&modestbranding=1&rel=0",
   compartir:
-    "https://www.youtube.com/embed/WMW87bXkxmc?autoplay=1&mute=1&loop=1&playlist=WMW87bXkxmc&controls=0&showinfo=0&modestbranding=1&rel=0",
+    "https://www.youtube-nocookie.com/embed/WMW87bXkxmc?autoplay=1&mute=1&loop=1&playlist=WMW87bXkxmc&controls=0&showinfo=0&modestbranding=1&rel=0",
 }
 
 // Lista de videos de YouTube para la galería
@@ -45,17 +45,17 @@ const youtubeVideos = [
   {
     id: "a8S6_aTRMEU",
     title: "Turismo Buenos Aires",
-    embedUrl: "https://www.youtube.com/embed/a8S6_aTRMEU?autoplay=0&mute=0",
+    embedUrl: "https://www.youtube-nocookie.com/embed/a8S6_aTRMEU?autoplay=0&mute=0",
   },
   {
     id: "4S7xeGj3jNw",
     title: "Centro Cultural Inca Garcilaso",
-    embedUrl: "https://www.youtube.com/embed/4S7xeGj3jNw?autoplay=0&mute=0",
+    embedUrl: "https://www.youtube-nocookie.com/embed/4S7xeGj3jNw?autoplay=0&mute=0",
   },
   {
     id: "WMW87bXkxmc",
     title: "Centro Cultural Clavijero",
-    embedUrl: "https://www.youtube.com/embed/WMW87bXkxmc?autoplay=0&mute=0",
+    embedUrl: "https://www.youtube-nocookie.com/embed/WMW87bXkxmc?autoplay=0&mute=0",
   },
 ]
 
