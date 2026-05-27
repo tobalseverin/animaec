@@ -12,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import SiteHeader from "@/components/site-header"
 import ActionButtons from "@/components/action-buttons"
 import ListView from "@/components/list-view"
+import CalendarView from "@/components/calendar-view"
 
 export default function ExplorarPage() {
   const [view, setView] = useState<"calendar" | "list">("list")
@@ -109,15 +110,7 @@ export default function ExplorarPage() {
           </Button>
         </div>
 
-        <div className="flex-1 bg-muted/5 h-[90vh] pb-24">
-          {view === "list" ? (
-            <ListView />
-          ) : (
-            <div className="p-4 text-center text-muted-foreground">
-              <p>Vista de calendario no disponible en este momento.</p>
-            </div>
-          )}
-        </div>
+        <div className="flex-1 bg-muted/5 h-[90vh] pb-24">{view === "list" ? <ListView /> : <CalendarView />}</div>
       </div>
 
       {/* Botones de acción */}

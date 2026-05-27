@@ -10,7 +10,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Ánima Espacio Cultural",
   description: "Espacio para la creación, el arte, la comunidad y la residencia artística en Montevideo, Uruguay.",
-    generator: 'v0.dev'
+    generator: 'v0.app'
 }
 
 export default function RootLayout({
@@ -19,8 +19,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="es" suppressHydrationWarning>
-      <body className={`${inter.className} overflow-x-hidden`}>
+    <html lang="es" suppressHydrationWarning suppressContentEditableWarning>
+      <body className={`${inter.className} overflow-x-hidden`} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <LanguageProvider>{children}</LanguageProvider>
         </ThemeProvider>

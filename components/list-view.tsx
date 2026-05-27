@@ -229,6 +229,12 @@ export default function ListView() {
     e.preventDefault()
     setIsSubmitting(true)
 
+    // Mostrar notificación inmediatamente
+    toast({
+      title: "Enviando inscripción",
+      description: "Por favor espera mientras procesamos tu inscripción...",
+    })
+
     if (!selectedEvent) return
 
     const formData = new FormData(e.target as HTMLFormElement)
@@ -252,16 +258,18 @@ export default function ListView() {
 
       if (result.success) {
         toast({
-          title: "Inscripción enviada",
+          title: "✅ Inscripción enviada exitosamente",
           description: `Tu inscripción para ${selectedEvent.title} ha sido enviada correctamente. Te contactaremos pronto.`,
+          duration: 6000,
         })
         setIsDialogOpen(false)
         setShowRegistrationForm(false)
       } else {
         toast({
-          title: "Error",
+          title: "❌ Error al enviar inscripción",
           description: result.error || "Hubo un problema al procesar tu inscripción. Por favor intenta nuevamente.",
           variant: "destructive",
+          duration: 8000,
         })
       }
     } catch (error) {

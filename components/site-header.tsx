@@ -5,7 +5,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Moon, Sun, Menu } from "lucide-react"
-import { useTheme } from "next-themes"
+import { useTheme } from "@/components/theme-provider"
 import { useLanguage } from "@/components/language-provider"
 import FullScreenMenu from "@/components/full-screen-menu"
 
