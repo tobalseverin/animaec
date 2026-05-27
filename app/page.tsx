@@ -15,7 +15,7 @@ import {
   Sun,
   MessageSquare,
 } from "lucide-react"
-import { useTheme } from "next-themes"
+import { useTheme } from "@/components/theme-provider"
 import Link from "next/link"
 import Footer from "@/components/footer"
 import Image from "next/image"
