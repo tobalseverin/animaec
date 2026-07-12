@@ -6,7 +6,20 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Input } from "@/components/ui/input"
+import { ChevronLeft, ChevronRight, Calendar, List, Search, Loader2, AlertCircle } from "lucide-react"
+import { useActivities, type Activity } from "@/hooks/useActivities"
+
+// Colores extraídos del logo SVG
+const logoColors = {
+  salon1: "#D53F6E", // Magenta del logo
+  salon2: "#1A4A92", // Azul del logo
+  salon3: "#009476", // Verde del logo
+  salon4: "#E19014", // Naranja del logo
+  salon5: "#660099", // Púrpura del logo
+  casa: "#CE838B", // Rosa del logo
+}
 
 interface Event {
   id: string
@@ -22,94 +35,152 @@ interface Event {
 
 type CalendarViewType = "month" | "week" | "day"
 
-export default function CalendarView() {
+interface CalendarViewProps {
+  selectedSalon?: string
+  onSalonChange?: (salon: string) => void
+  searchQuery?: string
+  onSearchChange?: (query: string) => void
+  currentView?: "calendar" | "list"
+  onViewChange?: (view: "calendar" | "list") => void
+}
+
+export default function CalendarView({
+  selectedSalon = "todos",
+  onSalonChange,
+  searchQuery: externalSearchQuery = "",
+  onSearchChange,
+  currentView = "calendar",
+  onViewChange
+}: CalendarViewProps) {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [selectedSalon, setSelectedSalon] = useState<string>("todos")
   const [calendarDays, setCalendarDays] = useState<Array<Date | null>>([])
   const [viewType, setViewType] = useState<CalendarViewType>("week")
   const [hours, setHours] = useState<string[]>([])
   const [calendarHeight, setCalendarHeight] = useState(0)
+  const [internalSearchQuery, setInternalSearchQuery] = useState("")
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
 
   // Referencia para medir la altura del contenedor
   const containerRef = React.useRef<HTMLDivElement>(null)
 
-  // Datos de ejemplo - Usando el mes actual para evitar problemas con fechas pasadas
-  const currentYear = currentDate.getFullYear()
-  const currentMonth = currentDate.getMonth()
+  // Fetch activities from Directus
+  const { activities, loading, error } = useActivities()
 
-  const events: Event[] = [
-    {
-      id: "1",
-      title: "Taller de Cerámica",
-      start: new Date(currentYear, currentMonth, 5, 10, 0),
-      end: new Date(currentYear, currentMonth, 5, 12, 0),
-      salon: "Salón 1",
-      instructor: "María González",
-      description: "Aprende técnicas básicas de cerámica y crea tus propias piezas.",
-      color: "hsl(340, 82%, 52%)",
-      image: "https://images.unsplash.com/photo-1565373677928-80b631bc3760?q=80&w=300&auto=format&fit=crop",
-    },
-    {
-      id: "2",
-      title: "Clase de Pintura",
-      start: new Date(currentYear, currentMonth, 8, 14, 0),
-      end: new Date(currentYear, currentMonth, 8, 16, 0),
-      salon: "Salón 2",
-      instructor: "Carlos Rodríguez",
-      description: "Explora diferentes técnicas de pintura y desarrolla tu estilo propio.",
-      color: "hsl(210, 100%, 56%)",
-      image: "https://images.unsplash.com/photo-1579762593175-20226054cad0?q=80&w=300&auto=format&fit=crop",
-    },
-    {
-      id: "3",
-      title: "Yoga",
-      start: new Date(currentYear, currentMonth, 12, 9, 0),
-      end: new Date(currentYear, currentMonth, 12, 10, 30),
-      salon: "Salón 3",
-      instructor: "Laura Martínez",
-      description: "Sesión de yoga para todos los niveles.",
-      color: "hsl(130, 61%, 54%)",
-      image: "https://images.unsplash.com/photo-1575052814086-f385e2e2ad1b?q=80&w=300&auto=format&fit=crop",
-    },
-    {
-      id: "4",
-      title: "Taller de Fotografía",
-      start: new Date(currentYear, currentMonth, 15, 16, 0),
-      end: new Date(currentYear, currentMonth, 15, 18, 0),
-      salon: "Salón 4",
-      instructor: "Juan Pérez",
-      description: "Aprende los fundamentos de la fotografía y mejora tus habilidades.",
-      color: "hsl(43, 96%, 58%)",
-      image: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=300&auto=format&fit=crop",
-    },
-    {
-      id: "5",
-      title: "Concierto Acústico",
-      start: new Date(currentYear, currentMonth, 18, 19, 0),
-      end: new Date(currentYear, currentMonth, 18, 21, 0),
-      salon: "Salón 5",
-      instructor: "Banda Local",
-      description: "Disfruta de un concierto acústico con artistas locales.",
-      color: "hsl(280, 100%, 70%)",
-      image: "https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?q=80&w=300&auto=format&fit=crop",
-    },
-    {
-      id: "6",
-      title: "Exposición de Arte",
-      start: new Date(currentYear, currentMonth, 22, 11, 0),
-      end: new Date(currentYear, currentMonth, 22, 20, 0),
-      salon: "Casa",
-      instructor: "Varios Artistas",
-      description: "Exposición de obras de artistas residentes y locales.",
-      color: "hsl(24, 100%, 62%)",
-      image: "https://images.unsplash.com/photo-1531913764164-f85c52d7e6a9?q=80&w=300&auto=format&fit=crop",
-    },
-  ]
+  // Convert Activity to Event format
+  const mapActivityToEvent = (activity: Activity): Event => {
+    let startDate = new Date()
+    let endDate = new Date()
+    endDate.setHours(endDate.getHours() + 1)
 
-  // Filtrar eventos según el salón seleccionado
-  const filteredEvents = selectedSalon === "todos" ? events : events.filter((event) => event.salon === selectedSalon)
+    if (activity.horario) {
+      try {
+        startDate = new Date(activity.horario)
+        endDate = new Date(activity.horario)
+        endDate.setHours(endDate.getHours() + 1)
+      } catch (e) {
+        console.error("Error parsing horario:", activity.horario, e)
+      }
+    }
+
+    // Get color based on type
+    const getTypeColor = (tipo: string): string => {
+      const typeColors: { [key: string]: string } = {
+        "Taller": "#D53F6E",
+        "Clase": "#1A4A92",
+        "Evento": "#009476",
+        "Conferencia": "#E19014",
+        "Reunión": "#660099",
+      }
+      return typeColors[tipo] || "#CE838B"
+    }
+
+    const color = getTypeColor(activity.tipo)
+
+    return {
+      id: String(activity.id),
+      title: activity.titulo,
+      start: startDate,
+      end: endDate,
+      salon: activity.sala,
+      instructor: activity.colaboradores?.[0]?.nombre || activity.telefono || "Sin facilitador",
+      description: activity.descripcion,
+      color: color,
+      image: activity.foto || "/placeholder.svg?height=200&width=200",
+    }
+  }
+
+  // Map day names (English and Spanish) to JS day-of-week index (0=Sun, 1=Mon...)
+  const dayNameToIndex: Record<string, number> = {
+    "sunday": 0, "domingo": 0,
+    "monday": 1, "lunes": 1,
+    "tuesday": 2, "martes": 2,
+    "wednesday": 3, "miércoles": 3, "miercoles": 3,
+    "thursday": 4, "jueves": 4,
+    "friday": 5, "viernes": 5,
+    "saturday": 6, "sábado": 6, "sabado": 6,
+  }
+
+  // Expand recurring activities: one event per week occurrence in the current month/view
+  const expandedEvents: Event[] = []
+
+  activities.forEach((activity) => {
+    const base = mapActivityToEvent(activity)
+
+    if (!activity.dias) {
+      expandedEvents.push(base)
+      return
+    }
+
+    // Parse recurring days — handles: "Tuesday", "Sábado", '["Sábado","Martes"]'
+    let diasRaw = activity.dias
+    let diasArray: string[] = []
+    try {
+      const parsed = JSON.parse(diasRaw)
+      diasArray = Array.isArray(parsed) ? parsed : [String(parsed)]
+    } catch {
+      diasArray = [diasRaw]
+    }
+    const diasStr = diasArray.join(" ").toLowerCase()
+    const recurringDays: number[] = []
+    Object.entries(dayNameToIndex).forEach(([name, idx]) => {
+      if (diasStr.includes(name)) {
+        if (!recurringDays.includes(idx)) recurringDays.push(idx)
+      }
+    })
+
+    if (recurringDays.length === 0) {
+      expandedEvents.push(base)
+      return
+    }
+
+    // Generate one occurrence per matching weekday in the current month ± 1
+    const viewStart = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
+    const viewEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 2, 0)
+
+    const baseHour = base.start.getHours()
+    const baseMin = base.start.getMinutes()
+
+    const cursor = new Date(viewStart)
+    while (cursor <= viewEnd) {
+      if (recurringDays.includes(cursor.getDay())) {
+        const occStart = new Date(cursor)
+        occStart.setHours(baseHour, baseMin, 0, 0)
+        const occEnd = new Date(occStart)
+        occEnd.setHours(occStart.getHours() + 1)
+        expandedEvents.push({
+          ...base,
+          id: `${base.id}-${cursor.toISOString().slice(0, 10)}`,
+          start: occStart,
+          end: occEnd,
+        })
+      }
+      cursor.setDate(cursor.getDate() + 1)
+    }
+  })
+
+  const filteredEvents = expandedEvents
 
   // Generar horas para la vista
   useEffect(() => {
@@ -242,6 +313,38 @@ export default function CalendarView() {
     )
   }
 
+  // Calcular columnas para eventos superpuestos (basado en tiempo real, no solo hora)
+  const getEventColumns = (events: Event[]) => {
+    if (events.length <= 1) return events.map((_, i) => ({ event: events[i], col: 0, cols: 1 }))
+
+    // Detectar colisiones de tiempo real
+    const eventWithCol: Array<{ event: Event; col: number }> = []
+    for (const event of events) {
+      let assignedCol = 0
+      for (const placed of eventWithCol) {
+        // Verificar si se superponen: event.start < placed.event.end AND event.end > placed.event.start
+        if (event.start < placed.event.end && event.end > placed.event.start) {
+          assignedCol = Math.max(assignedCol, placed.col + 1)
+        }
+      }
+      eventWithCol.push({ event, col: assignedCol })
+    }
+
+    const maxCol = Math.max(...eventWithCol.map((x) => x.col), 0)
+    const totalCols = maxCol + 1
+
+    return eventWithCol.map((x) => ({ event: x.event, col: x.col, cols: totalCols }))
+  }
+
+  // Calcular altura dinámica de celda basada en número de eventos superpuestos
+  const getEventCellHeight = (overlapCount: number, isWeekView: boolean): number => {
+    const baseHeight = isWeekView ? 60 : 80
+    if (overlapCount <= 1) return baseHeight
+    if (overlapCount <= 3) return Math.round(baseHeight * 1.5)
+    if (overlapCount <= 5) return Math.round(baseHeight * 2)
+    return Math.round(baseHeight * 2.5)
+  }
+
   // Formatear el período actual según el tipo de vista
   const formatCurrentPeriod = () => {
     if (viewType === "month") {
@@ -277,10 +380,10 @@ export default function CalendarView() {
       const cellHeight = `${(calendarHeight - 60) / numRows}px`
 
       return (
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7 gap-1.5 h-full">
           {/* Días de la semana */}
           {weekDays.map((day, index) => (
-            <div key={`header-${index}`} className="text-center font-medium text-sm py-2">
+            <div key={`header-${index}`} className="text-center font-medium text-base py-2 capitalize">
               {day}
             </div>
           ))}
@@ -305,42 +408,33 @@ export default function CalendarView() {
             return (
               <div
                 key={`day-${index}`}
-                className={`border rounded-md p-1 overflow-auto ${
-                  !day ? "bg-muted/20" : isToday ? "border-primary/50 bg-primary/5" : "hover:border-primary/30"
+                className={`rounded-lg p-2.5 overflow-auto ${
+                  !day
+                    ? "bg-slate-100 dark:bg-slate-950"
+                    : isToday
+                      ? "bg-purple-50 dark:bg-purple-950/20"
+                      : "bg-slate-50 dark:bg-slate-900"
                 }`}
                 style={{ height: cellHeight }}
               >
                 {day && (
                   <div className="h-full flex flex-col">
-                    <div className="flex justify-end mb-1">
-                      <Badge variant="outline" className="bg-white dark:bg-background text-foreground">
-                        {day.getDate()}
-                      </Badge>
+                    <div className="flex justify-end mb-1.5">
+                      <span className={`text-base font-semibold ${isToday ? "text-primary" : "text-foreground"}`}>
+                        {day.getDate().toString().padStart(2, "0")}
+                      </span>
                     </div>
-                    <div className="space-y-1 flex-1 overflow-auto">
+                    <div className="space-y-1.5 flex-1 overflow-auto">
                       {dayEvents.map((event) => (
                         <div
                           key={event.id}
                           onClick={() => handleEventClick(event)}
-                          className="text-xs p-1 rounded cursor-pointer truncate relative"
-                          style={{
-                            backgroundImage: `url(${event.image})`,
-                            backgroundSize: "cover",
-                            backgroundPosition: "center",
-                            backgroundColor: `${event.color}20`,
-                            borderLeft: `3px solid ${event.color}`,
-                          }}
+                          className="rounded-md p-2.5 pb-3.5 cursor-pointer hover:opacity-80 transition-colors bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
+                          style={{ borderLeft: `3px solid ${event.color}` }}
                         >
-                          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm"></div>
-                          <div className="relative z-10">
-                            <div className="font-medium truncate">{event.title}</div>
-                            <div className="text-[10px] truncate">
-                              {event.start.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
-                              <div
-                                className="inline-block ml-1 w-2 h-2 rounded-full"
-                                style={{ backgroundColor: event.color }}
-                              ></div>
-                            </div>
+                          <div className="uppercase font-normal text-sm leading-snug break-words">{event.title}</div>
+                          <div className="text-xs text-muted-foreground mt-2.5">
+                            {event.start.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
                           </div>
                         </div>
                       ))}
@@ -356,57 +450,68 @@ export default function CalendarView() {
       return (
         <div className="flex flex-col h-full">
           {/* Cabecera de días */}
-          <div className="grid grid-cols-8 gap-1 mb-2">
-            <div className="text-center font-medium text-sm py-2"></div>
+          <div className="grid grid-cols-[52px_repeat(7,1fr)] gap-0">
+            <div className="py-3"></div>
             {calendarDays.map((day, index) => (
-              <div key={`header-${index}`} className="text-center font-medium text-sm py-2">
-                <div>{weekDays[index]}</div>
-                {day && (
-                  <Badge variant="outline" className="bg-white dark:bg-background text-foreground mt-1">
-                    {day.getDate()}
-                  </Badge>
-                )}
+              <div
+                key={`header-${index}`}
+                className={`text-center font-medium text-base py-3 ${
+                  index % 2 === 0
+                    ? "bg-slate-50 dark:bg-slate-950"
+                    : "bg-slate-100 dark:bg-slate-900"
+                }`}
+              >
+                <span className="capitalize">{weekDays[index]}</span>
+                {day && <span className="ml-1.5">{day.getDate().toString().padStart(2, "0")}</span>}
               </div>
             ))}
           </div>
 
           {/* Horas y eventos */}
           <div className="flex-1 overflow-y-auto">
-            <div className="grid grid-cols-8 gap-1">
+            <div className="grid grid-cols-[52px_repeat(7,1fr)] gap-0">
               {hours.map((hour, hourIndex) => (
                 <React.Fragment key={`hour-${hourIndex}`}>
-                  <div className="text-right pr-2 text-sm text-muted-foreground py-2">{hour}</div>
+                  <div className="text-right pr-2 text-xs text-muted-foreground py-3">{hour}</div>
                   {calendarDays.map((day, dayIndex) => {
-                    const hourEvents = getEventsForDayAndHour(day, hour)
-                    const totalEvents = hourEvents.length
+                    const hourEvents = getEventsForDayAndHour(day, hour).sort(
+                      (a, b) => a.start.getTime() - b.start.getTime(),
+                    )
 
                     return (
-                      <div key={`cell-${dayIndex}-${hourIndex}`} className="border rounded-md min-h-[60px] relative">
-                        {hourEvents.map((event, eventIndex) => (
+                      <div
+                        key={`cell-${dayIndex}-${hourIndex}`}
+                        className={`p-2 flex flex-col gap-2 min-h-[64px] ${
+                          dayIndex % 2 === 0
+                            ? "bg-slate-50 dark:bg-slate-950"
+                            : "bg-slate-100 dark:bg-slate-900"
+                        }`}
+                      >
+                        {hourEvents.map((event) => (
                           <div
                             key={`event-${event.id}-${hourIndex}`}
-                            onClick={() => handleEventClick(event)}
-                            className="absolute inset-0 p-1 rounded cursor-pointer overflow-hidden"
-                            style={{
-                              backgroundImage: `url(${event.image})`,
-                              backgroundSize: "cover",
-                              backgroundPosition: "center",
-                              height: totalEvents > 1 ? `${100 / totalEvents}%` : "100%",
-                              top: totalEvents > 1 ? `${(eventIndex * 100) / totalEvents}%` : "0",
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleEventClick(event)
                             }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault()
+                                handleEventClick(event)
+                              }
+                            }}
+                            className="cursor-pointer hover:opacity-80 transition-colors rounded-md p-3 pb-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
+                            style={{ borderLeft: `3px solid ${event.color}` }}
+                            title={event.title}
                           >
-                            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm"></div>
-                            <div
-                              className="absolute left-0 top-0 bottom-0 w-1"
-                              style={{ backgroundColor: event.color }}
-                            ></div>
-                            <div className="relative z-10 text-xs p-1">
-                              <div className="font-medium truncate">{event.title}</div>
-                              {hourIndex === Number.parseInt(hour.split(":")[0]) - 8 && (
-                                <div className="text-[10px]">
-                                  {event.start.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
-                                </div>
-                              )}
+                            <div className="uppercase font-normal text-base leading-snug break-words">
+                              {event.title}
+                            </div>
+                            <div className="text-sm text-muted-foreground mt-3">
+                              {event.start.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })} -{" "}
+                              {event.end.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
                             </div>
                           </div>
                         ))}
@@ -422,48 +527,46 @@ export default function CalendarView() {
     } else if (viewType === "day") {
       return (
         <div className="flex flex-col h-full">
-          {/* Cabecera del día */}
-          <div className="text-center font-medium py-2 mb-2">
-            {calendarDays[0] && (
-              <Badge variant="outline" className="bg-white dark:bg-background text-foreground px-4 py-1 text-lg">
-                {calendarDays[0].getDate()}
-              </Badge>
-            )}
-          </div>
-
           {/* Horas y eventos */}
           <div className="flex-1 overflow-y-auto">
             <div className="grid grid-cols-1 gap-1">
               {hours.map((hour, hourIndex) => {
-                const hourEvents = calendarDays[0] ? getEventsForDayAndHour(calendarDays[0], hour) : []
+                const hourEvents = (calendarDays[0] ? getEventsForDayAndHour(calendarDays[0], hour) : []).sort(
+                  (a, b) => a.start.getTime() - b.start.getTime(),
+                )
 
                 return (
-                  <div key={`hour-${hourIndex}`} className="grid grid-cols-[80px_1fr] gap-2">
-                    <div className="text-right pr-2 text-sm text-muted-foreground py-2">{hour}</div>
-                    <div className="border rounded-md min-h-[80px] relative">
+                  <div key={`hour-${hourIndex}`} className="grid grid-cols-[52px_1fr] gap-2">
+                    <div className="text-right pr-2 text-xs text-muted-foreground py-3">{hour}</div>
+                    <div
+                      className="rounded-md p-2 flex flex-col gap-2 min-h-[64px] bg-slate-50 dark:bg-slate-950"
+                    >
                       {hourEvents.map((event) => (
                         <div
                           key={`event-${event.id}-${hourIndex}`}
-                          onClick={() => handleEventClick(event)}
-                          className="absolute inset-0 p-2 rounded cursor-pointer"
-                          style={{
-                            backgroundImage: `url(${event.image})`,
-                            backgroundSize: "cover",
-                            backgroundPosition: "center",
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEventClick(event)
                           }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault()
+                              handleEventClick(event)
+                            }
+                          }}
+                          className="rounded-md cursor-pointer hover:opacity-80 transition-colors p-4 pb-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
+                          style={{ borderLeft: `4px solid ${event.color}` }}
+                          title={event.title}
                         >
-                          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm"></div>
-                          <div
-                            className="absolute left-0 top-0 bottom-0 w-1"
-                            style={{ backgroundColor: event.color }}
-                          ></div>
-                          <div className="relative z-10 p-2">
-                            <div className="font-medium">{event.title}</div>
-                            <div className="text-sm">
-                              {event.start.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })} -
-                              {event.end.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
-                            </div>
-                            <div className="text-sm mt-1">{event.instructor}</div>
+                          <div className="uppercase font-normal text-xl leading-snug break-words">{event.title}</div>
+                          {event.instructor && event.instructor !== "Sin facilitador" && (
+                            <div className="text-base text-muted-foreground mt-1">{event.instructor}</div>
+                          )}
+                          <div className="text-base text-muted-foreground mt-4">
+                            {event.start.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })} -{" "}
+                            {event.end.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
                           </div>
                         </div>
                       ))}
@@ -481,89 +584,177 @@ export default function CalendarView() {
   }
 
   return (
-    <div className="space-y-4 p-4 h-[90vh]" ref={containerRef}>
-      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+    <div className="flex flex-col gap-4 p-4 h-[95vh]" ref={containerRef}>
+      {/* Controles: Período + Vista + Búsqueda - Todo en una línea */}
+      <div className="flex items-center gap-4">
+        {/* Navegación de período */}
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={prevPeriod}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h2 className="text-xl font-medium capitalize">{formatCurrentPeriod()}</h2>
+          <h2 className="text-lg font-medium capitalize min-w-[200px] text-center">{formatCurrentPeriod()}</h2>
           <Button variant="outline" size="sm" onClick={nextPeriod}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm">Vista:</span>
-            <Select value={viewType} onValueChange={(value) => setViewType(value as CalendarViewType)}>
-              <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder="Semana" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="month">Mes</SelectItem>
-                <SelectItem value="week">Semana</SelectItem>
-                <SelectItem value="day">Día</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        {/* Separador visual */}
+        <div className="flex-1"></div>
+
+        {/* Selector de vista */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Vista:</span>
+          <Select value={viewType} onValueChange={(value) => setViewType(value as CalendarViewType)}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Semana" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="month">Mes</SelectItem>
+              <SelectItem value="week">Semana</SelectItem>
+              <SelectItem value="day">Día</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
+
+        {/* Búsqueda */}
+        <Popover open={isSearchOpen} onOpenChange={setIsSearchOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="icon" className="flex-shrink-0">
+              <Search className="h-4 w-4" />
+              <span className="sr-only">Buscar</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0" align="end">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                setIsSearchOpen(false)
+              }}
+              className="flex items-center p-2"
+            >
+              <Input
+                type="text"
+                placeholder="Buscar actividades..."
+                value={internalSearchQuery}
+                onChange={(e) => {
+                  setInternalSearchQuery(e.target.value)
+                  onSearchChange?.(e.target.value)
+                }}
+                className="flex-1"
+              />
+              <Button type="submit" size="sm" className="ml-2">
+                Buscar
+              </Button>
+            </form>
+          </PopoverContent>
+        </Popover>
+
+        {/* Botones de vista (Calendario/Lista) */}
+        {onViewChange && (
+          <div className="flex gap-0 bg-muted rounded-lg p-1 flex-shrink-0">
+            <Button
+              variant={currentView === "calendar" ? "default" : "ghost"}
+              size="icon"
+              onClick={() => onViewChange("calendar")}
+              aria-label="Calendario"
+              title="Calendario"
+              className="rounded-md"
+            >
+              <Calendar className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={currentView === "list" ? "default" : "ghost"}
+              size="icon"
+              onClick={() => onViewChange("list")}
+              aria-label="Lista"
+              title="Lista"
+              className="rounded-md"
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Calendario */}
-      <Card className="h-[calc(90vh-100px)]">
-        <CardContent className="p-4 h-full overflow-auto">{renderCalendarView()}</CardContent>
-      </Card>
+      <div className="flex-1 min-h-0">
+          {loading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Cargando calendario...</p>
+              </div>
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="flex flex-col items-center gap-2 text-center max-w-sm">
+                <AlertCircle className="h-8 w-8 text-destructive" />
+                <p className="text-sm font-medium">Error al cargar actividades</p>
+                <p className="text-xs text-muted-foreground">{error}</p>
+                <Button variant="outline" size="sm" onClick={() => window.location.reload()} className="mt-2">
+                  Reintentar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            renderCalendarView()
+          )}
+      </div>
 
       {/* Event Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         {selectedEvent && (
-          <DialogContent className="p-0 max-w-3xl overflow-hidden">
-            <div className="relative h-48 overflow-hidden">
+          <DialogContent className="p-0 max-w-2xl max-h-[90vh] overflow-y-auto">
+            {/* Header con imagen */}
+            <div className="relative h-48 overflow-hidden flex-shrink-0">
               <img
-                src={selectedEvent.image || "/placeholder.svg"}
+                src={selectedEvent.image}
                 alt={selectedEvent.title}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent"></div>
-              <div className="absolute bottom-0 left-0 right-0 p-4">
-                <Badge style={{ backgroundColor: selectedEvent.color }} className="mb-2">
-                  {selectedEvent.salon}
-                </Badge>
-                <h2 className="text-2xl font-light text-white">{selectedEvent.title}</h2>
-                <p className="text-sm text-white/80">{selectedEvent.instructor}</p>
+              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent"></div>
+              <div className="absolute bottom-0 left-0 right-0 p-6">
+                <h2 className="text-3xl font-bold text-white">{selectedEvent.title}</h2>
               </div>
             </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-medium mb-1">Fecha y hora:</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedEvent.start.toLocaleDateString("es-ES", {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedEvent.start.toLocaleTimeString("es-ES", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}{" "}
-                    -{" "}
-                    {selectedEvent.end.toLocaleTimeString("es-ES", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
-                </div>
 
-                <div>
-                  <h3 className="text-sm font-medium mb-1">Descripción:</h3>
-                  <p className="text-sm text-muted-foreground">{selectedEvent.description}</p>
-                </div>
+            {/* Contenido - Ficha */}
+            <div className="p-6 space-y-6">
+              {/* Sección: Cuándo */}
+              <div className="border-l-4 border-blue-500 pl-4">
+                <h3 className="text-xs font-semibold uppercase text-muted-foreground mb-2">📅 Cuándo</h3>
+                <p className="text-sm font-semibold">
+                  {selectedEvent.start.toLocaleDateString("es-ES", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                  })}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {selectedEvent.start.toLocaleTimeString("es-ES", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
               </div>
+
+              {/* Sección: Facilitador */}
+              {selectedEvent.instructor && selectedEvent.instructor !== "Sin facilitador" && (
+                <div className="border-l-4 border-purple-500 pl-4">
+                  <h3 className="text-xs font-semibold uppercase text-muted-foreground mb-2">👤 Facilitador</h3>
+                  <p className="text-sm font-semibold">{selectedEvent.instructor}</p>
+                </div>
+              )}
+
+              {/* Sección: Descripción */}
+              {selectedEvent.description && (
+                <div className="border-l-4 border-green-500 pl-4">
+                  <h3 className="text-xs font-semibold uppercase text-muted-foreground mb-3">📝 Descripción</h3>
+                  <div className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                    {selectedEvent.description}
+                  </div>
+                </div>
+              )}
             </div>
           </DialogContent>
         )}

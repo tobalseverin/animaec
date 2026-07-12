@@ -60,7 +60,14 @@ export default function ExplorarPage() {
               onViewChange={setView}
             />
           ) : (
-            <CalendarView />
+            <CalendarView
+              selectedSalon={selectedSalon}
+              onSalonChange={setSelectedSalon}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              currentView={view}
+              onViewChange={setView}
+            />
           )}
         </div>
       </div>
