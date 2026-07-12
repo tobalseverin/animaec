@@ -1,202 +1,107 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
-import { ChevronDown, ChevronUp, CreditCard } from "lucide-react"
-import { toast } from "@/hooks/use-toast"
-import { sendEmail } from "@/lib/email-service"
-
-// Colores extraídos del logo SVG
-const logoColors = {
-  salon1: "#D53F6E", // Magenta del logo
-  salon2: "#1A4A92", // Azul del logo
-  salon3: "#009476", // Verde del logo
-  salon4: "#E19014", // Naranja del logo
-  salon5: "#660099", // Púrpura del logo
-  casa: "#CE838B", // Rosa del logo
-}
+import { Loader2, AlertCircle, ExternalLink } from "lucide-react"
+import { useActivities, type Activity } from "@/hooks/useActivities"
 
 interface Event {
   id: string
   title: string
   start: Date
   end: Date
-  salon: string
+  type: string
   instructor: string
   description: string
-  color: string
-  secondaryColor?: string
   image: string
-  prices: {
-    singleClass: number
-    monthly: number
-    halfYear: number
+  phone: string
+}
+
+const getTypeColor = (tipo: string): string => {
+  const typeColors: { [key: string]: string } = {
+    Taller: "#D53F6E",
+    Clase: "#1A4A92",
+    Evento: "#009476",
+    Conferencia: "#E19014",
+    Reunión: "#660099",
   }
+  return typeColors[tipo] || "#CE838B"
 }
 
 export default function ListView() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedSalon, setSelectedSalon] = useState<string>("todos")
-  const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [showRegistrationForm, setShowRegistrationForm] = useState(false)
-  const [selectedPlan, setSelectedPlan] = useState<"singleClass" | "monthly" | "halfYear">("singleClass")
-  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Crear fechas de manera segura
-  const today = new Date()
-  const tomorrow = new Date()
-  tomorrow.setDate(today.getDate() + 1)
-  const dayAfterTomorrow = new Date()
-  dayAfterTomorrow.setDate(today.getDate() + 2)
+  // Fetch activities from Directus
+  const { activities, loading, error } = useActivities()
 
-  // Crear horas específicas para cada evento
-  const createEventTime = (baseDate: Date, hours: number, minutes = 0) => {
-    const date = new Date(baseDate)
-    date.setHours(hours, minutes, 0, 0)
-    return date
+  // Convert Activity to Event format
+  const mapActivityToEvent = (activity: Activity): Event => {
+    let startDate = new Date()
+    let endDate = new Date()
+    endDate.setHours(endDate.getHours() + 1)
+
+    if (activity.horario) {
+      try {
+        startDate = new Date(activity.horario)
+        endDate = new Date(activity.horario)
+        endDate.setHours(endDate.getHours() + 1)
+      } catch (e) {
+        console.error("Error parsing horario:", activity.horario, e)
+      }
+    }
+
+    return {
+      id: String(activity.id),
+      title: activity.titulo,
+      start: startDate,
+      end: endDate,
+      type: activity.tipo,
+      instructor: activity.colaboradores?.[0]?.nombre || activity.telefono || "Sin facilitador",
+      description: activity.descripcion,
+      image: activity.foto || "/placeholder.svg?height=200&width=200",
+      phone: activity.telefono,
+    }
   }
 
-  // Datos simplificados con imágenes más relevantes y colores del logo
-  const events: Event[] = [
-    // Evento 1 (Taller de Cerámica)
-    {
-      id: "1",
-      title: "Taller de Cerámica",
-      start: createEventTime(today, 10),
-      end: createEventTime(today, 12),
-      salon: "Salón 1",
-      instructor: "María González",
-      description:
-        "Aprende técnicas básicas de cerámica y crea tus propias piezas. Ideal para principiantes y personas con experiencia que deseen perfeccionar su técnica.",
-      color: logoColors.salon1,
-      secondaryColor: "#B85446", // Versión más oscura del terracota
-      image: "/pottery-studio-in-progress.png",
-      prices: {
-        singleClass: 800,
-        monthly: 2800,
-        halfYear: 15000,
-      },
-    },
-    // Evento 2 (Clase de Pintura)
-    {
-      id: "2",
-      title: "Clase de Pintura",
-      start: createEventTime(today, 14),
-      end: createEventTime(today, 16),
-      salon: "Salón 2",
-      instructor: "Carlos Rodríguez",
-      description:
-        "Explora diferentes técnicas de pintura y desarrolla tu estilo propio. Trabajaremos con acrílicos y acuarelas en diversos soportes.",
-      color: logoColors.salon2,
-      secondaryColor: "#4A6273", // Versión más oscura del azul grisáceo
-      image: "/abstract-acrylic-flow.png",
-      prices: {
-        singleClass: 750,
-        monthly: 2600,
-        halfYear: 14000,
-      },
-    },
-    // Evento 3 (Yoga)
-    {
-      id: "3",
-      title: "Yoga",
-      start: createEventTime(tomorrow, 9),
-      end: createEventTime(tomorrow, 10, 30),
-      salon: "Salón 3",
-      instructor: "Laura Martínez",
-      description:
-        "Sesión de yoga para todos los niveles. Enfocada en la respiración, flexibilidad y fortalecimiento del cuerpo y la mente.",
-      color: logoColors.salon3,
-      secondaryColor: "#64723B", // Versión más oscura del verde oliva
-      image: "/serene-yoga-meditation.png",
-      prices: {
-        singleClass: 600,
-        monthly: 2200,
-        halfYear: 12000,
-      },
-    },
-    // Evento 4 (Taller de Fotografía)
-    {
-      id: "4",
-      title: "Taller de Fotografía",
-      start: createEventTime(tomorrow, 16),
-      end: createEventTime(tomorrow, 18),
-      salon: "Salón 4",
-      instructor: "Juan Pérez",
-      description:
-        "Aprende los fundamentos de la fotografía y mejora tus habilidades. Traer cámara propia (DSLR o mirrorless) o smartphone con buena cámara.",
-      color: logoColors.salon4,
-      secondaryColor: "#A3813A", // Versión más oscura del mostaza oscuro
-      image: "/camera-lens-close-up.png",
-      prices: {
-        singleClass: 900,
-        monthly: 3200,
-        halfYear: 17000,
-      },
-    },
-    // Evento 5 (Concierto Acústico)
-    {
-      id: "5",
-      title: "Concierto Acústico",
-      start: createEventTime(dayAfterTomorrow, 19),
-      end: createEventTime(dayAfterTomorrow, 21),
-      salon: "Salón 5",
-      instructor: "Banda Local",
-      description:
-        "Disfruta de un concierto acústico con artistas locales. Música original y versiones de clásicos en un ambiente íntimo y acogedor.",
-      color: logoColors.salon5,
-      secondaryColor: "#5F3D4D", // Versión más oscura del berenjena
-      image: "/intimate-acoustic-night.png",
-      prices: {
-        singleClass: 500,
-        monthly: 0,
-        halfYear: 0,
-      },
-    },
-    // Evento 6 (Exposición de Arte)
-    {
-      id: "6",
-      title: "Exposición de Arte",
-      start: createEventTime(dayAfterTomorrow, 11),
-      end: createEventTime(dayAfterTomorrow, 20),
-      salon: "Casa",
-      instructor: "Varios Artistas",
-      description:
-        "Exposición de obras de artistas residentes y locales. Pinturas, esculturas y fotografías que exploran temas contemporáneos.",
-      color: logoColors.casa,
-      secondaryColor: "#915430", // Versión más oscura del arcilla
-      image: "/art-gallery-opening.png",
-      prices: {
-        singleClass: 300,
-        monthly: 0,
-        halfYear: 0,
-      },
-    },
-  ]
+  // Convert activities to events
+  const events: Event[] = activities.map(mapActivityToEvent)
 
-  // Filtrar eventos según la búsqueda y el salón seleccionado
-  const filteredEvents = events.filter(
-    (event) =>
-      (selectedSalon === "todos" || event.salon === selectedSalon) &&
-      (event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+  // Get unique event types (without "todos")
+  const eventTypes = [...new Set(activities.map((a) => a.tipo).filter(Boolean))].sort()
+
+  // Filter and sort events by date and type
+  const filteredEvents = events
+    .filter(
+      (event) =>
+        event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         event.instructor.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.description.toLowerCase().includes(searchQuery.toLowerCase())),
-  )
+        event.description.toLowerCase().includes(searchQuery.toLowerCase()),
+    )
+    .sort((a, b) => {
+      // Sort by type first, then by date
+      if (a.type !== b.type) {
+        return a.type.localeCompare(b.type)
+      }
+      return a.start.getTime() - b.start.getTime()
+    })
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSearchOpen(false)
-  }
+  // Group events by type
+  const groupedEvents = useMemo(() => {
+    const groups: { [key: string]: Event[] } = {}
+    filteredEvents.forEach((event) => {
+      if (!groups[event.type]) {
+        groups[event.type] = []
+      }
+      groups[event.type].push(event)
+    })
+    return groups
+  }, [filteredEvents])
 
-  // Formatear fecha para mostrar
   const formatDate = (date: Date) => {
     try {
       return date.toLocaleDateString("es-ES", {
@@ -213,145 +118,127 @@ export default function ListView() {
   const handleEventClick = (event: Event) => {
     setSelectedEvent(event)
     setIsDialogOpen(true)
-    setShowRegistrationForm(false)
   }
 
-  const formatPrice = (price: number) => {
-    try {
-      return new Intl.NumberFormat("es-UY", { style: "currency", currency: "UYU" }).format(price)
-    } catch (error) {
-      console.error("Error formatting price:", error)
-      return `${price}`
-    }
-  }
+  const openWhatsApp = (phone: string, eventTitle: string) => {
+    // Remove spaces and special characters from phone number
+    let cleanPhone = phone.replace(/[\s\-\(\)]/g, "")
 
-  const handleRegistration = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-
-    // Mostrar notificación inmediatamente
-    toast({
-      title: "Enviando inscripción",
-      description: "Por favor espera mientras procesamos tu inscripción...",
-    })
-
-    if (!selectedEvent) return
-
-    const formData = new FormData(e.target as HTMLFormElement)
-    const registrationData = {
-      eventTitle: selectedEvent.title,
-      selectedPlan: selectedPlan === "singleClass" ? "Por clase" : selectedPlan === "monthly" ? "Mensual" : "Semestral",
-      price:
-        selectedPlan === "singleClass"
-          ? formatPrice(selectedEvent.prices.singleClass)
-          : selectedPlan === "monthly"
-            ? formatPrice(selectedEvent.prices.monthly)
-            : formatPrice(selectedEvent.prices.halfYear),
-      fullName: formData.get("fullName") as string,
-      email: formData.get("email") as string,
-      phone: formData.get("phone") as string,
-      comments: (formData.get("comments") as string) || "",
-    }
-
-    try {
-      const result = await sendEmail("registration", registrationData)
-
-      if (result.success) {
-        toast({
-          title: "✅ Inscripción enviada exitosamente",
-          description: `Tu inscripción para ${selectedEvent.title} ha sido enviada correctamente. Te contactaremos pronto.`,
-          duration: 6000,
-        })
-        setIsDialogOpen(false)
-        setShowRegistrationForm(false)
-      } else {
-        toast({
-          title: "❌ Error al enviar inscripción",
-          description: result.error || "Hubo un problema al procesar tu inscripción. Por favor intenta nuevamente.",
-          variant: "destructive",
-          duration: 8000,
-        })
+    // Add Uruguay country code if not present
+    if (!cleanPhone.startsWith("+")) {
+      // If starts with 0, remove it (Uruguayan convention)
+      if (cleanPhone.startsWith("0")) {
+        cleanPhone = cleanPhone.substring(1)
       }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Hubo un problema al procesar tu inscripción. Por favor intenta nuevamente.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSubmitting(false)
+      // Add +598 country code
+      cleanPhone = "+598" + cleanPhone
     }
+
+    const message = encodeURIComponent(`Hola, me interesa participar en "${eventTitle}"`)
+    window.open(`https://wa.me/${cleanPhone}?text=${message}`, "_blank")
   }
 
   return (
-    <div className="space-y-0 p-4">
-      <div className="space-y-0">
-        {filteredEvents.length > 0 ? (
-          filteredEvents.map((event, index) => (
-            <div key={event.id}>
-              <div
-                className="border-0 rounded-lg p-4 hover:bg-white/5 transition-colors bg-card cursor-pointer"
-                onClick={() => handleEventClick(event)}
-              >
-                <div className="flex flex-row gap-6">
-                  {/* Columna izquierda - Avatar sin efecto dual tone */}
-                  <div className="relative">
-                    <div className="h-20 w-20 rounded-full overflow-hidden relative">
-                      {/* Imagen sin efectos */}
-                      <img
-                        src={event.image || "/placeholder.svg?height=200&width=200"}
-                        alt={event.title}
-                        className="object-cover w-full h-full"
-                      />
-                    </div>
-                  </div>
+    <div className="space-y-4 p-4">
+      {/* Categorías scrollables con títulos */}
+      <div className="flex gap-2 overflow-x-auto pb-2 px-2">
+        {eventTypes.map((type) => (
+          <Button
+            key={type}
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const element = document.getElementById(`section-${type}`)
+              if (element) {
+                element.scrollIntoView({ behavior: "smooth", block: "start" })
+              }
+            }}
+            className="whitespace-nowrap"
+          >
+            {type}
+          </Button>
+        ))}
+      </div>
 
-                  {/* Columna central - Título y persona */}
-                  <div className="flex-1">
-                    <h3 className="activity-title">{event.title}</h3>
-                    <p className="instructor-name text-sm font-medium uppercase tracking-wide">{event.instructor}</p>
-                    <p className="text-sm text-muted-foreground mt-2">{event.description}</p>
-                    <div className="mt-2">
-                      <span className="text-sm font-medium">{formatPrice(event.prices.singleClass)} por clase</span>
-                      {event.prices.monthly > 0 && (
-                        <span className="text-sm font-medium ml-4">{formatPrice(event.prices.monthly)} mensual</span>
-                      )}
-                    </div>
-                  </div>
+      {/* Lista de actividades agrupadas por categoría */}
+      <div className="space-y-6">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Cargando actividades...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="flex flex-col items-center gap-2 text-center max-w-sm">
+              <AlertCircle className="h-8 w-8 text-destructive" />
+              <p className="text-sm font-medium">Error al cargar actividades</p>
+              <p className="text-xs text-muted-foreground">{error}</p>
+              <Button variant="outline" size="sm" onClick={() => window.location.reload()} className="mt-2">
+                Reintentar
+              </Button>
+            </div>
+          </div>
+        ) : Object.keys(groupedEvents).length > 0 ? (
+          Object.keys(groupedEvents)
+            .sort()
+            .map((type) => (
+              <div key={type} id={`section-${type}`}>
+                {/* Título de la sección */}
+                <h2 className="text-lg font-bold uppercase tracking-widest text-muted-foreground mb-4 px-2">
+                  {type}
+                </h2>
+                {/* Actividades de esta categoría */}
+                <div className="space-y-3">
+                  {groupedEvents[type].map((event) => (
+                    <div
+                      key={event.id}
+                      className="rounded-lg cursor-pointer hover:opacity-80 transition-colors bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-row items-stretch overflow-hidden"
+                      style={{ borderLeft: `4px solid ${getTypeColor(event.type)}` }}
+                      onClick={() => handleEventClick(event)}
+                    >
+                      {/* Imagen - Toma todo el alto */}
+                      <div className="w-24 h-24 flex-shrink-0 overflow-hidden">
+                        <img
+                          src={event.image}
+                          alt={event.title}
+                          className="object-cover w-full h-full"
+                        />
+                      </div>
 
-                  {/* Columna derecha - Fecha y hora */}
-                  <div className="flex flex-col min-w-[150px] items-end justify-center">
-                    <Badge variant="outline" className="bg-white dark:bg-background text-foreground px-3 py-1 mb-2">
-                      {formatDate(event.start)}
-                    </Badge>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">
-                        {event.start.toLocaleTimeString("es-ES", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                        {" ~ "}
-                        {event.end.toLocaleTimeString("es-ES", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                      <div
-                        className="h-3 w-3 rounded-full"
-                        style={{ backgroundColor: event.color }}
-                        title={event.salon}
-                      ></div>
+                      {/* Contenido - Título + Datos centrados verticalmente */}
+                      <div className="flex-1 flex items-center justify-between px-5 py-4 gap-4">
+                        {/* Título + Instructor (centro-izquierda) */}
+                        <div className="flex-1">
+                          <h3 className="activity-title font-normal uppercase leading-tight text-2xl tracking-widest">
+                            {event.title}
+                          </h3>
+                          {event.instructor && event.instructor !== "Sin facilitador" && (
+                            <p className="text-sm text-muted-foreground mt-1">con {event.instructor}</p>
+                          )}
+                        </div>
+
+                        {/* Tipo y Fecha (derecha) */}
+                        <div className="flex flex-col items-end gap-2 text-right flex-shrink-0">
+                          <p className="text-sm font-bold uppercase tracking-widest">{event.type}</p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground whitespace-nowrap">
+                            <span className="capitalize hidden sm:inline">{formatDate(event.start)}</span>
+                            <span className="hidden sm:inline">·</span>
+                            <span>
+                              {event.start.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
               </div>
-              {/* Línea separadora sutil entre eventos (excepto el último) */}
-              {index < filteredEvents.length - 1 && <div className="h-px w-full bg-white/10 my-2"></div>}
-            </div>
-          ))
+            ))
         ) : (
           <div className="text-center py-8">
-            <p className="text-muted-foreground">No se encontraron actividades con los filtros seleccionados.</p>
+            <p className="text-muted-foreground">No se encontraron actividades.</p>
           </div>
         )}
       </div>
@@ -359,176 +246,72 @@ export default function ListView() {
       {/* Event Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         {selectedEvent && (
-          <DialogContent className="p-0 max-w-3xl overflow-hidden">
-            <div className="relative h-48 overflow-hidden">
-              {/* Imagen sin efectos en el diálogo */}
+          <DialogContent className="p-0 max-w-2xl max-h-[90vh] overflow-y-auto">
+            {/* Header con imagen */}
+            <div className="relative h-48 overflow-hidden flex-shrink-0">
               <img
-                src={selectedEvent.image || "/placeholder.svg?height=400&width=600"}
+                src={selectedEvent.image}
                 alt={selectedEvent.title}
                 className="w-full h-full object-cover"
               />
-
-              {/* Gradiente para texto */}
-              <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent"></div>
-              <div className="absolute bottom-0 left-0 right-0 p-4">
-                <Badge style={{ backgroundColor: selectedEvent.color }} className="mb-2">
-                  {selectedEvent.salon}
-                </Badge>
-                <h2 className="text-2xl font-light text-white">{selectedEvent.title}</h2>
-                <p className="text-sm text-white/80">{selectedEvent.instructor}</p>
+              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent"></div>
+              <div className="absolute bottom-0 left-0 right-0 p-6">
+                <h2 className="text-3xl font-bold text-white">{selectedEvent.title}</h2>
+                <p className="text-sm text-white/90 mt-2 uppercase tracking-wide">{selectedEvent.type}</p>
               </div>
             </div>
-            <div className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-medium mb-1">Fecha y hora:</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedEvent.start.toLocaleDateString("es-ES", {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedEvent.start.toLocaleTimeString("es-ES", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}{" "}
-                    -{" "}
-                    {selectedEvent.end.toLocaleTimeString("es-ES", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
-                </div>
 
-                <div>
-                  <h3 className="text-sm font-medium mb-1">Descripción:</h3>
-                  <p className="text-sm text-muted-foreground">{selectedEvent.description}</p>
-                </div>
+            {/* Contenido - Ficha */}
+            <div className="p-6 space-y-6">
+              {/* Sección: Cuándo */}
+              <div className="border-l-4 border-blue-500 pl-4">
+                <h3 className="text-xs font-semibold uppercase text-muted-foreground mb-2">📅 Cuándo</h3>
+                <p className="text-sm font-semibold">
+                  {selectedEvent.start.toLocaleDateString("es-ES", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                  })}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {selectedEvent.start.toLocaleTimeString("es-ES", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              </div>
 
-                <div className="pt-2">
-                  <h3 className="text-sm font-medium mb-2">Precios:</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="border rounded-md p-3 text-center">
-                      <p className="text-lg font-bold">{formatPrice(selectedEvent.prices.singleClass)}</p>
-                      <p className="text-xs text-muted-foreground">Por clase</p>
-                    </div>
-                    {selectedEvent.prices.monthly > 0 && (
-                      <div className="border rounded-md p-3 text-center">
-                        <p className="text-lg font-bold">{formatPrice(selectedEvent.prices.monthly)}</p>
-                        <p className="text-xs text-muted-foreground">Mensual</p>
-                      </div>
-                    )}
-                    {selectedEvent.prices.halfYear > 0 && (
-                      <div className="border rounded-md p-3 text-center">
-                        <p className="text-lg font-bold">{formatPrice(selectedEvent.prices.halfYear)}</p>
-                        <p className="text-xs text-muted-foreground">Semestral</p>
-                      </div>
-                    )}
+              {/* Sección: Facilitador */}
+              {selectedEvent.instructor && selectedEvent.instructor !== "Sin facilitador" && (
+                <div className="border-l-4 border-purple-500 pl-4">
+                  <h3 className="text-xs font-semibold uppercase text-muted-foreground mb-2">👤 Facilitador</h3>
+                  <p className="text-sm font-semibold">{selectedEvent.instructor}</p>
+                </div>
+              )}
+
+              {/* Sección: Descripción */}
+              {selectedEvent.description && (
+                <div className="border-l-4 border-green-500 pl-4">
+                  <h3 className="text-xs font-semibold uppercase text-muted-foreground mb-3">📝 Descripción</h3>
+                  <div className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                    {selectedEvent.description}
                   </div>
                 </div>
+              )}
 
-                <div className="pt-4">
-                  <Button className="w-full" onClick={() => setShowRegistrationForm(!showRegistrationForm)}>
-                    {showRegistrationForm ? (
-                      <>
-                        <ChevronUp className="mr-2 h-4 w-4" />
-                        Ocultar formulario de inscripción
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="mr-2 h-4 w-4" />
-                        Inscribirme en este taller
-                      </>
-                    )}
+              {/* Sección: Contacto */}
+              {selectedEvent.phone && selectedEvent.phone.trim() && (
+                <div className="border-l-4 border-green-600 pl-4 pt-2">
+                  <h3 className="text-xs font-semibold uppercase text-muted-foreground mb-3">💬 Contactar</h3>
+                  <Button
+                    onClick={() => openWhatsApp(selectedEvent.phone, selectedEvent.title)}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Escribir por WhatsApp
                   </Button>
                 </div>
-
-                {showRegistrationForm && (
-                  <div className="pt-4 border-t mt-4">
-                    <h3 className="text-lg font-medium mb-4">Formulario de inscripción</h3>
-                    <form onSubmit={handleRegistration} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="fullName">Nombre completo</Label>
-                        <Input id="fullName" name="fullName" placeholder="Tu nombre completo" required />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="email">Correo electrónico</Label>
-                        <Input id="email" name="email" type="email" placeholder="tu@email.com" required />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="phone">Teléfono</Label>
-                        <Input id="phone" name="phone" placeholder="+598 XX XXX XXX" required />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Plan de inscripción</Label>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id="singleClass"
-                              checked={selectedPlan === "singleClass"}
-                              onCheckedChange={() => setSelectedPlan("singleClass")}
-                            />
-                            <Label htmlFor="singleClass" className="text-sm">
-                              Por clase ({formatPrice(selectedEvent.prices.singleClass)})
-                            </Label>
-                          </div>
-
-                          {selectedEvent.prices.monthly > 0 && (
-                            <div className="flex items-center space-x-2">
-                              <Checkbox
-                                id="monthly"
-                                checked={selectedPlan === "monthly"}
-                                onCheckedChange={() => setSelectedPlan("monthly")}
-                              />
-                              <Label htmlFor="monthly" className="text-sm">
-                                Mensual ({formatPrice(selectedEvent.prices.monthly)})
-                              </Label>
-                            </div>
-                          )}
-
-                          {selectedEvent.prices.halfYear > 0 && (
-                            <div className="flex items-center space-x-2">
-                              <Checkbox
-                                id="halfYear"
-                                checked={selectedPlan === "halfYear"}
-                                onCheckedChange={() => setSelectedPlan("halfYear")}
-                              />
-                              <Label htmlFor="halfYear" className="text-sm">
-                                Semestral ({formatPrice(selectedEvent.prices.halfYear)})
-                              </Label>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="comments">Comentarios adicionales</Label>
-                        <Input id="comments" name="comments" placeholder="Información adicional que debamos saber" />
-                      </div>
-
-                      <Button type="submit" className="w-full" disabled={isSubmitting}>
-                        {isSubmitting ? (
-                          <span className="flex items-center">
-                            <span className="mr-2">Enviando</span>
-                            <span className="animate-spin">⋯</span>
-                          </span>
-                        ) : (
-                          <>
-                            <CreditCard className="mr-2 h-4 w-4" />
-                            Enviar inscripción
-                          </>
-                        )}
-                      </Button>
-                    </form>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           </DialogContent>
         )}
