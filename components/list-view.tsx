@@ -295,12 +295,11 @@ export default function ListView({
                   {type}
                 </h2>
                 {/* Actividades de esta categoría */}
-                <div className="space-y-3">
+                <div className="space-y-0">
                   {groupedEvents[type].map((event) => (
                     <div
                       key={event.id}
-                      className="rounded-lg cursor-pointer hover:opacity-80 transition-colors bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-row items-stretch overflow-hidden"
-                      style={{ borderLeft: `4px solid ${getTypeColor(event.type)}` }}
+                      className="cursor-pointer hover:opacity-80 transition-colors bg-black dark:bg-black flex flex-row items-stretch overflow-hidden border-b border-slate-800 dark:border-slate-800"
                       onClick={() => handleEventClick(event)}
                     >
                       {/* Imagen - Toma todo el alto */}
@@ -313,24 +312,24 @@ export default function ListView({
                       </div>
 
                       {/* Contenido - Título + Datos centrados verticalmente */}
-                      <div className="flex-1 flex items-center justify-between px-5 py-4 gap-4">
+                      <div className="flex-1 flex items-center justify-between px-6 py-4 gap-6">
                         {/* Título + Instructor (centro-izquierda) */}
                         <div className="flex-1">
-                          <h3 className="activity-title font-normal uppercase leading-tight text-2xl tracking-widest">
+                          <h3 className="activity-title font-light uppercase leading-tight text-4xl tracking-tight">
                             {event.title}
                           </h3>
                           {event.instructor && event.instructor !== "Sin facilitador" && (
-                            <p className="text-sm text-muted-foreground mt-1">con {event.instructor}</p>
+                            <p className="text-xs text-muted-foreground mt-2">con {event.instructor}</p>
                           )}
                         </div>
 
-                        {/* Tipo y Fecha (derecha) */}
-                        <div className="flex flex-col items-end gap-2 text-right flex-shrink-0">
-                          <p className="text-sm font-bold uppercase tracking-widest">{event.type}</p>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground whitespace-nowrap">
-                            <span className="capitalize hidden sm:inline">{formatDate(event.start)}</span>
-                            <span className="hidden sm:inline">·</span>
-                            <span>
+                        {/* Fecha (derecha) - Dos líneas */}
+                        <div className="flex flex-col items-end gap-1 text-right flex-shrink-0">
+                          <div className="flex flex-col items-end gap-0">
+                            <span className="text-sm font-light text-white">
+                              {event.start.toLocaleDateString("es-ES", { day: "2-digit", month: "short" }).toUpperCase()}
+                            </span>
+                            <span className="text-sm font-light text-white">
                               {event.start.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
                             </span>
                           </div>
