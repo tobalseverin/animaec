@@ -6,7 +6,9 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2, AlertCircle, ExternalLink } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Input } from "@/components/ui/input"
+import { Calendar, List, Search, Loader2, AlertCircle, ExternalLink } from "lucide-react"
 import { useActivities, type Activity } from "@/hooks/useActivities"
 
 interface Event {
@@ -35,12 +37,26 @@ const getTypeColor = (tipo: string): string => {
 interface ListViewProps {
   selectedSalon?: string
   onSalonChange?: (salon: string) => void
+  searchQuery?: string
+  onSearchChange?: (query: string) => void
+  currentView?: "calendar" | "list"
+  onViewChange?: (view: "calendar" | "list") => void
 }
 
-export default function ListView({ selectedSalon = "todos", onSalonChange }: ListViewProps) {
-  const [searchQuery, setSearchQuery] = useState("")
+export default function ListView({
+  selectedSalon = "todos",
+  onSalonChange,
+  searchQuery: externalSearchQuery = "",
+  onSearchChange,
+  currentView = "list",
+  onViewChange
+}: ListViewProps) {
+  const [internalSearchQuery, setInternalSearchQuery] = useState("")
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+
+  const searchQuery = externalSearchQuery || internalSearchQuery
 
   // Fetch activities from Directus
   const { activities, loading, error } = useActivities()
@@ -146,7 +162,7 @@ export default function ListView({ selectedSalon = "todos", onSalonChange }: Lis
 
   return (
     <div className="space-y-4 p-4">
-      {/* Categorías scrollables y Selector de salón */}
+      {/* Categorías, Filtros y Controles de Vista */}
       <div className="flex items-center gap-4 overflow-x-auto pb-2 px-2">
         {/* Categorías scrollables */}
         <div className="flex gap-2">
@@ -184,6 +200,68 @@ export default function ListView({ selectedSalon = "todos", onSalonChange }: Lis
               <SelectItem value="Casa">Casa</SelectItem>
             </SelectContent>
           </Select>
+        )}
+
+        {/* Espacio flexible */}
+        <div className="flex-1" />
+
+        {/* Búsqueda */}
+        <Popover open={isSearchOpen} onOpenChange={setIsSearchOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="icon" className="flex-shrink-0">
+              <Search className="h-4 w-4" />
+              <span className="sr-only">Buscar</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0" align="end">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                setIsSearchOpen(false)
+              }}
+              className="flex items-center p-2"
+            >
+              <Input
+                type="text"
+                placeholder="Buscar actividades..."
+                value={internalSearchQuery}
+                onChange={(e) => {
+                  setInternalSearchQuery(e.target.value)
+                  onSearchChange?.(e.target.value)
+                }}
+                className="flex-1"
+              />
+              <Button type="submit" size="sm" className="ml-2">
+                Buscar
+              </Button>
+            </form>
+          </PopoverContent>
+        </Popover>
+
+        {/* Botones de vista */}
+        {onViewChange && (
+          <div className="flex gap-0 bg-muted rounded-lg p-1 flex-shrink-0">
+            <Button
+              variant={currentView === "calendar" ? "default" : "ghost"}
+              size="icon"
+              onClick={() => onViewChange("calendar")}
+              aria-label="Calendario"
+              title="Calendario"
+              className="rounded-md"
+            >
+              <Calendar className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={currentView === "list" ? "default" : "ghost"}
+              size="icon"
+              onClick={() => onViewChange("list")}
+              aria-label="Lista"
+              title="Lista"
+              className="rounded-md"
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
         )}
       </div>
 
