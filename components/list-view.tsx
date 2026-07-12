@@ -5,6 +5,7 @@ import { useState, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, AlertCircle, ExternalLink } from "lucide-react"
 import { useActivities, type Activity } from "@/hooks/useActivities"
 
@@ -31,7 +32,12 @@ const getTypeColor = (tipo: string): string => {
   return typeColors[tipo] || "#CE838B"
 }
 
-export default function ListView() {
+interface ListViewProps {
+  selectedSalon?: string
+  onSalonChange?: (salon: string) => void
+}
+
+export default function ListView({ selectedSalon = "todos", onSalonChange }: ListViewProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -140,24 +146,45 @@ export default function ListView() {
 
   return (
     <div className="space-y-4 p-4">
-      {/* Categorías scrollables con títulos */}
-      <div className="flex gap-2 overflow-x-auto pb-2 px-2">
-        {eventTypes.map((type) => (
-          <Button
-            key={type}
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const element = document.getElementById(`section-${type}`)
-              if (element) {
-                element.scrollIntoView({ behavior: "smooth", block: "start" })
-              }
-            }}
-            className="whitespace-nowrap"
-          >
-            {type}
-          </Button>
-        ))}
+      {/* Categorías scrollables y Selector de salón */}
+      <div className="flex items-center gap-4 overflow-x-auto pb-2 px-2">
+        {/* Categorías scrollables */}
+        <div className="flex gap-2">
+          {eventTypes.map((type) => (
+            <Button
+              key={type}
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const element = document.getElementById(`section-${type}`)
+                if (element) {
+                  element.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
+              }}
+              className="whitespace-nowrap"
+            >
+              {type}
+            </Button>
+          ))}
+        </div>
+
+        {/* Selector de salón */}
+        {onSalonChange && (
+          <Select value={selectedSalon} onValueChange={onSalonChange}>
+            <SelectTrigger className="w-[200px] flex-shrink-0">
+              <SelectValue placeholder="Todos los salones" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos los salones</SelectItem>
+              <SelectItem value="Salón 1">Salón 1</SelectItem>
+              <SelectItem value="Salón 2">Salón 2</SelectItem>
+              <SelectItem value="Salón 3">Salón 3</SelectItem>
+              <SelectItem value="Salón 4">Salón 4</SelectItem>
+              <SelectItem value="Salón 5">Salón 5</SelectItem>
+              <SelectItem value="Casa">Casa</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Lista de actividades agrupadas por categoría */}

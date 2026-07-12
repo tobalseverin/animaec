@@ -33,24 +33,34 @@ export default function ExplorarPage() {
       </div>
 
       <div className="px-16">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-light">Explorar</h1>
             <p className="text-xl text-muted-foreground mt-2">
               Descubre las actividades y espacios disponibles en Ánima
             </p>
           </div>
-          <div className="flex gap-4">
-            <Button variant="outline" asChild>
-              <Link href="/explorar/espacios">Espacios</Link>
+          {/* Toggle Actividades | Espacios */}
+          <div className="flex gap-0 bg-muted rounded-lg p-1">
+            <Button
+              variant={view === "list" ? "default" : "ghost"}
+              onClick={() => setView("list")}
+              className="rounded-md px-6 py-2 text-base font-medium"
+            >
+              Actividades
             </Button>
-            <Button variant="outline" asChild>
-              <Link href="/explorar/como-llegar">Cómo llegar</Link>
+            <Button
+              variant="ghost"
+              asChild
+              className="rounded-md px-6 py-2 text-base font-medium"
+            >
+              <Link href="/explorar/espacios">Espacios</Link>
             </Button>
           </div>
         </div>
 
-        <div className="flex justify-end items-center mb-6">
+        {/* Controles: Búsqueda y Vista */}
+        <div className="flex items-center gap-4 mb-6">
           {/* Buscador con popover */}
           <Popover open={isSearchOpen} onOpenChange={setIsSearchOpen}>
             <PopoverTrigger asChild>
@@ -59,7 +69,7 @@ export default function ExplorarPage() {
                 <span className="sr-only">Buscar</span>
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80 p-0" align="end">
+            <PopoverContent className="w-80 p-0" align="start">
               <form onSubmit={handleSearch} className="flex items-center p-2">
                 <Input
                   type="text"
@@ -75,42 +85,38 @@ export default function ExplorarPage() {
             </PopoverContent>
           </Popover>
 
-          {/* Selector de salón */}
-          <Select value={selectedSalon} onValueChange={setSelectedSalon}>
-            <SelectTrigger className="w-[180px] ml-4">
-              <SelectValue placeholder="Todos los salones" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos los salones</SelectItem>
-              <SelectItem value="Salón 1">Salón 1</SelectItem>
-              <SelectItem value="Salón 2">Salón 2</SelectItem>
-              <SelectItem value="Salón 3">Salón 3</SelectItem>
-              <SelectItem value="Salón 4">Salón 4</SelectItem>
-              <SelectItem value="Salón 5">Salón 5</SelectItem>
-              <SelectItem value="Casa">Casa</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Botones de vista */}
-          <Button
-            variant={view === "calendar" ? "default" : "outline"}
-            onClick={() => setView("calendar")}
-            className="flex items-center gap-2 ml-4"
-          >
-            <Calendar className="h-4 w-4" />
-            Calendario
-          </Button>
-          <Button
-            variant={view === "list" ? "default" : "outline"}
-            onClick={() => setView("list")}
-            className="flex items-center gap-2 ml-4"
-          >
-            <List className="h-4 w-4" />
-            Lista
-          </Button>
+          {/* Botones de vista unidos */}
+          <div className="flex gap-0 bg-muted rounded-lg p-1">
+            <Button
+              variant={view === "calendar" ? "default" : "ghost"}
+              size="icon"
+              onClick={() => setView("calendar")}
+              aria-label="Calendario"
+              title="Calendario"
+              className="rounded-md"
+            >
+              <Calendar className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={view === "list" ? "default" : "ghost"}
+              size="icon"
+              onClick={() => setView("list")}
+              aria-label="Lista"
+              title="Lista"
+              className="rounded-md"
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
-        <div className="flex-1 bg-muted/5 h-[90vh] pb-24">{view === "list" ? <ListView /> : <CalendarView />}</div>
+        <div className="flex-1 bg-muted/5 h-[90vh] pb-24">
+          {view === "list" ? (
+            <ListView selectedSalon={selectedSalon} onSalonChange={setSelectedSalon} />
+          ) : (
+            <CalendarView />
+          )}
+        </div>
       </div>
 
       {/* Botones de acción */}
