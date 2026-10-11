@@ -136,18 +136,37 @@ export default function EspaciosPage() {
       </div>
 
       <div className="px-16 flex-1 flex flex-col">
-        <div className="max-w-full mb-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-light mb-2">Nuestros Espacios</h1>
-              <p className="text-xl text-muted-foreground">
-                Conoce los diferentes salones y áreas disponibles en Ánima Espacio Cultural
-              </p>
-            </div>
-            <Button asChild>
-              <Link href="/3d-viewer">Modelo 3D</Link>
+        {/* Barra de "Explora" */}
+        <div className="flex justify-between items-center mb-8">
+          <div className="text-center flex-1">
+            <h1 className="text-3xl font-light mb-2">Nuestros Espacios</h1>
+            <p className="text-xl text-muted-foreground">
+              Conoce los diferentes salones y áreas disponibles en Ánima Espacio Cultural
+            </p>
+          </div>
+          {/* Toggle Actividades | Espacios */}
+          <div className="flex gap-0 bg-muted rounded-lg p-1">
+            <Button
+              variant="ghost"
+              asChild
+              className="rounded-md px-6 py-2 text-base font-medium"
+            >
+              <Link href="/explorar">Actividades</Link>
+            </Button>
+            <Button
+              variant="default"
+              className="rounded-md px-6 py-2 text-base font-medium"
+            >
+              Espacios
             </Button>
           </div>
+        </div>
+
+        {/* Botón 3D */}
+        <div className="flex justify-center mb-6">
+          <Button asChild>
+            <Link href="/3d-viewer">Modelo 3D</Link>
+          </Button>
         </div>
 
         <div className="flex-1 grid grid-cols-3 gap-6 mb-8">

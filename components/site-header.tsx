@@ -36,10 +36,10 @@ export default function SiteHeader({ showBackButton = true, backUrl = "/", showL
           </Button>
 
           {showBackButton && (
-            <Button variant="ghost" asChild className="hover:bg-white/10 transition-colors">
+            <Button variant="ghost" size="icon" asChild className="hover:bg-white/10 transition-colors">
               <Link href={backUrl}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Volver
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Volver</span>
               </Link>
             </Button>
           )}

@@ -16,6 +16,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# página de depuración local: tenía credenciales escritas en el código (no subir)
+/app/debug/
+
 # env files
 .env*
 

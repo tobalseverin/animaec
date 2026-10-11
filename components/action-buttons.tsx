@@ -17,10 +17,14 @@ export default function ActionButtons() {
     <>
       {/* Quick Actions */}
       <div className="fixed bottom-4 right-4 flex flex-col gap-2 z-20">
-        <Button variant="outline" size="icon" className="rounded-full thin-border" asChild>
+        <Button
+          size="icon"
+          className="rounded-full bg-primary/15 hover:bg-primary/25 text-primary dark:bg-primary/20 dark:hover:bg-primary/30 transition-colors border-0"
+          asChild
+        >
           <Link href="/explorar/como-llegar">
             <MapPin className="h-6 w-6" />
-            <span className="sr-only">Ubicación</span>
+            <span className="sr-only">Cómo llegar</span>
           </Link>
         </Button>
         <Button variant="outline" size="icon" className="rounded-full thin-border" asChild>
